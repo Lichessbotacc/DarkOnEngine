@@ -64,7 +64,7 @@ def calculate_think_time(remaining_time_ms):
         return random.uniform(4, 6)
     elif t >= 30:
         return random.uniform(1, 2)
-    elif t >= 3:
+    elif t >= 5:
         return random.uniform(0.5, 1)
     else:
         return 0.00    # panic
