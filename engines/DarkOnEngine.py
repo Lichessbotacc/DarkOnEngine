@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 
+
 import chess
-import random
 import sys
 import time
 import threading
 from collections import defaultdict, namedtuple
+import random as rnd
 
 INF = 99999999
+DRAW_PENALTY = 150      # штраф за повтор
+WIN_THRESHOLD = 200    # считаем позицию выигранной (cp)
+
 
 PIECE_VALUES = {
     chess.PAWN: 100,
@@ -18,8 +22,8 @@ PIECE_VALUES = {
     chess.KING: 20000
 }
 
-# Небольшие PST для примера
 PST = {
+
     chess.PAWN: [
          0,  0,  0,  0,  0,  0,  0,  0,
          5, 10, 10,-20,-20, 10, 10,  5,
@@ -30,6 +34,7 @@ PST = {
         50, 50, 50, 50, 50, 50, 50, 50,
          0,  0,  0,  0,  0,  0,  0,  0
     ],
+
     chess.KNIGHT: [
         -50,-40,-30,-30,-30,-30,-40,-50,
         -40,-20,  0,  5,  5,  0,-20,-40,
@@ -49,23 +54,23 @@ def calculate_think_time(remaining_time_ms):
     t = remaining_time_ms / 1000  # seconds
 
     if t >= 1800:      # 30 minutes
-        return random.uniform(20, 30)
+        return rnd.uniform(20, 30)
     elif t >= 1200:    # 20 minutes
-        return random.uniform(16, 25)
+        return rnd.uniform(16, 25)
     elif t >= 600:     # 10 minutes
-        return random.uniform(12, 20)
+        return rnd.uniform(12, 20)
     elif t >= 420:     # 7 minutes
-        return random.uniform(8, 15)
+        return rnd.uniform(8, 15)
     elif t >= 300:     # 5 minutes
-        return random.uniform(6, 12)
+        return rnd.uniform(6, 12)
     elif t >= 180:     # 3 minutes
-        return random.uniform(7, 12)
+        return rnd.uniform(7, 12)
     elif t >= 60:      # 1 minute
-        return random.uniform(4, 6)
+        return rnd.uniform(4, 6)
     elif t >= 30:
-        return random.uniform(1, 2)
-    elif t >= 5:
-        return random.uniform(0.5, 1)
+        return rnd.uniform(1, 2)
+    elif t >= 4:
+        return rnd.uniform(0.5, 1)
     else:
         return 0.00    # panic
 
@@ -75,7 +80,10 @@ def fast_board_key(board: chess.Board):
 
 
 def mvv_lva_score(board, move):
-
+    """
+    MVV-LVA с учётом en-passant (если применимо) и премией за промоцию.
+    Чем выше — тем раньше ход.
+    """
     score = 0
     if board.is_capture(move):
         # определить жертву: для en-passant жертва — пешка не на to_square
@@ -92,94 +100,173 @@ def mvv_lva_score(board, move):
         score += PIECE_VALUES[chess.QUEEN] // 2
     return score
 
+# ---- Оценка позиции ----
 
 def evaluate(board: chess.Board):
-
-    # --- terminal ---
+    # ========= TERMINAL =========
     if board.is_checkmate():
         return -INF + 1
-
-    if board.is_stalemate() or board.is_insufficient_material() or board.can_claim_threefold_repetition():
+    if board.is_stalemate() or board.is_insufficient_material():
         return 0
 
+    score = 0
     material = 0
-    pst_score = 0
 
-    # --- Material + PST ---
-    for piece_type in PIECE_VALUES:
+    KING_ENDGAME_PST = [
+    -50, -30, -30, -30, -30, -30, -30, -50,
+    -30, -10,   0,   0,   0,   0, -10, -30,
+    -30,   0,  10,  15,  15,  10,   0, -30,
+    -30,   0,  15,  20,  20,  15,   0, -30,
+    -30,   0,  15,  20,  20,  15,   0, -30,
+    -30,   0,  10,  15,  15,  10,   0, -30,
+    -30, -10,   0,   0,   0,   0, -10, -30,
+    -50, -30, -30, -30, -30, -30, -30, -50
+    ]
+
+
+    # ========= MATERIAL + PST =========
+    for piece_type, value in PIECE_VALUES.items():
         for sq in board.pieces(piece_type, chess.WHITE):
-            material += PIECE_VALUES[piece_type]
+            material += value
             if piece_type in PST:
-                pst_score += PST[piece_type][sq]
+                score += PST[piece_type][sq]
 
         for sq in board.pieces(piece_type, chess.BLACK):
-            material -= PIECE_VALUES[piece_type]
+            material -= value
             if piece_type in PST:
-                pst_score -= PST[piece_type][chess.square_mirror(sq)]
+                score -= PST[piece_type][chess.square_mirror(sq)]
 
-    score_white = material + pst_score
+    score += material
 
-    # --- Mobility (ослабленная) ---
-    mobility = 2 * sum(1 for _ in board.legal_moves)
-    score_white += mobility
-
-    # --- Check penalty ---
-    if board.is_check():
-        score_white -= 50
+    # ========= GAME PHASE =========
+    endgame = material < 2400
 
     wk = board.king(chess.WHITE)
     bk = board.king(chess.BLACK)
 
-    # --- Early king move penalty ---
-    if board.fullmove_number <= 10:
-        if wk != chess.E1:
-            score_white -= 80
-        if bk != chess.E8:
-            score_white += 80
+    # ========= KING =========
+    if endgame:
+        score -= KING_ENDGAME_PST[wk]
+        score += KING_ENDGAME_PST[chess.square_mirror(bk)]
+    else:
+        if wk not in (chess.G1, chess.C1):
+            score -= 40
+        if bk not in (chess.G8, chess.C8):
+            score += 40
 
-    # --- King in center later ---
-    if board.fullmove_number > 10:
-        if wk in (chess.E1, chess.D1, chess.E2, chess.D2):
-            score_white -= 30
-        if bk in (chess.E8, chess.D8, chess.E7, chess.D7):
-            score_white += 30
+    # ========= BISHOP PAIR =========
+    if len(board.pieces(chess.BISHOP, chess.WHITE)) == 2:
+        score += 30
+    if len(board.pieces(chess.BISHOP, chess.BLACK)) == 2:
+        score -= 30
 
-    # --- Castling bonus ---
-    CASTLE_BONUS = 50
-    if wk in (chess.G1, chess.C1):
-        score_white += CASTLE_BONUS
-    if bk in (chess.G8, chess.C8):
-        score_white -= CASTLE_BONUS
+    # ========= PAWN STRUCTURE =========
+    PASSED_PAWN_BONUS = [0, 10, 20, 35, 60, 100, 140, 0]
 
-    # --- Hanging queen ---
-    HANGING_QUEEN_PENALTY = 900
+    def is_passed_pawn(sq, color):
+        file = chess.square_file(sq)
+        rank = chess.square_rank(sq)
+        direction = 1 if color == chess.WHITE else -1
+        enemy = not color
 
-    for sq in board.pieces(chess.QUEEN, chess.WHITE):
-        if board.is_attacked_by(chess.BLACK, sq):
-            score_white -= HANGING_QUEEN_PENALTY
+        for f in (file - 1, file, file + 1):
+            if 0 <= f <= 7:
+                r = rank + direction
+                while 0 <= r <= 7:
+                    p = board.piece_at(chess.square(f, r))
+                    if p and p.piece_type == chess.PAWN and p.color == enemy:
+                        return False
+                    r += direction
+        return True
 
-    for sq in board.pieces(chess.QUEEN, chess.BLACK):
-        if board.is_attacked_by(chess.WHITE, sq):
-            score_white += HANGING_QUEEN_PENALTY
+    for sq in board.pieces(chess.PAWN, chess.WHITE):
+        if is_passed_pawn(sq, chess.WHITE):
+            score += PASSED_PAWN_BONUS[chess.square_rank(sq)]
 
-    # --- Development ---
-    DEV_PENALTY = 8
+    for sq in board.pieces(chess.PAWN, chess.BLACK):
+        if is_passed_pawn(sq, chess.BLACK):
+            score -= PASSED_PAWN_BONUS[7 - chess.square_rank(sq)]
 
-    for sq in (chess.B1, chess.G1, chess.C1, chess.F1):
-        if board.piece_at(sq):
-            score_white -= DEV_PENALTY
+    # ========= ROOKS =========
+    def file_has_pawn(file, color):
+        for sq in board.pieces(chess.PAWN, color):
+            if chess.square_file(sq) == file:
+                return True
+        return False
 
-    for sq in (chess.B8, chess.G8, chess.C8, chess.F8):
-        if board.piece_at(sq):
-            score_white += DEV_PENALTY
+    ROOK_OPEN = 25
+    ROOK_SEMI = 15
+    ROOK_7TH = 30
 
-    # --- side to move ---
-    return score_white if board.turn == chess.WHITE else -score_white
+    for sq in board.pieces(chess.ROOK, chess.WHITE):
+        f = chess.square_file(sq)
+        if not file_has_pawn(f, chess.WHITE):
+            score += ROOK_OPEN if not file_has_pawn(f, chess.BLACK) else ROOK_SEMI
+        if chess.square_rank(sq) == 6:
+            score += ROOK_7TH
+
+    for sq in board.pieces(chess.ROOK, chess.BLACK):
+        f = chess.square_file(sq)
+        if not file_has_pawn(f, chess.BLACK):
+            score -= ROOK_OPEN if not file_has_pawn(f, chess.WHITE) else ROOK_SEMI
+        if chess.square_rank(sq) == 1:
+            score -= ROOK_7TH
+
+    # ========= KNIGHT OUTPOST =========
+    KNIGHT_OUTPOST = 25
+
+    def knight_outpost(sq, color):
+        rank = chess.square_rank(sq)
+        if color == chess.WHITE and rank < 3:
+            return False
+        if color == chess.BLACK and rank > 4:
+            return False
+
+        file = chess.square_file(sq)
+        enemy = not color
+        direction = 1 if color == chess.WHITE else -1
+
+        for df in (-1, 1):
+            f = file + df
+            if 0 <= f <= 7:
+                r = rank + direction
+                while 0 <= r <= 7:
+                    p = board.piece_at(chess.square(f, r))
+                    if p and p.piece_type == chess.PAWN and p.color == enemy:
+                        return False
+                    r += direction
+        return True
+
+    for sq in board.pieces(chess.KNIGHT, chess.WHITE):
+        if knight_outpost(sq, chess.WHITE):
+            score += KNIGHT_OUTPOST
+
+    for sq in board.pieces(chess.KNIGHT, chess.BLACK):
+        if knight_outpost(sq, chess.BLACK):
+            score -= KNIGHT_OUTPOST
+
+    # ========= SIMPLIFY WHEN WINNING =========
+    if material > 200:
+        score += 5 * (
+            len(board.pieces(chess.QUEEN, chess.BLACK)) +
+            len(board.pieces(chess.ROOK, chess.BLACK))
+        )
+
+    if material < -200:
+        score -= 5 * (
+            len(board.pieces(chess.QUEEN, chess.WHITE)) +
+            len(board.pieces(chess.ROOK, chess.WHITE))
+        )
+
+    # ========= SIDE TO MOVE =========
+    return score if board.turn == chess.WHITE else -score
 
 
 
 
-# ---- TT and state ----
+
+
+# ---- TT и state ----
 class SearchState:
     def __init__(self):
         self.tt = {}
@@ -227,7 +314,9 @@ def quiescence(board: chess.Board, alpha: int, beta: int, state: SearchState, st
 
 # ---- Negamax с alpha-beta и TT ----
 
-def negamax(board: chess.Board, depth: int, alpha: int, beta: int, state: SearchState, stop_event: threading.Event):
+def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
+            state: SearchState, stop_event: threading.Event):
+
     if stop_event.is_set():
         raise SearchAbort()
     if state.start_time and (time.time() - state.start_time) > state.time_limit:
@@ -271,12 +360,18 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int, state: Search
     for move in moves:
         if stop_event.is_set():
             raise SearchAbort()
-        mover = board.turn  # сторона, делающая ход
+
+        mover = board.turn
         board.push(move)
+
         try:
             score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
         finally:
             board.pop()
+
+        if board.can_claim_threefold_repetition():
+            if score > WIN_THRESHOLD:
+                score -= DRAW_PENALTY
 
         if score > best_score:
             best_score = score
@@ -284,12 +379,10 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int, state: Search
 
         if score > alpha:
             alpha = score
-            # обновляем history для хода, который привёл к улучшению
             if not board.is_capture(move):
                 state.history[(mover, move.from_square, move.to_square)] += 2 ** depth
 
         if alpha >= beta:
-            # beta-cutoff: запомним ход
             state.history[(mover, move.from_square, move.to_square)] += 2 ** depth
             break
 
@@ -300,8 +393,15 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int, state: Search
     else:
         flag = 'EXACT'
 
-    state.tt[key] = TTEntry(depth=depth, flag=flag, score=best_score, best_move=best_move)
+    state.tt[key] = TTEntry(
+        depth=depth,
+        flag=flag,
+        score=best_score,
+        best_move=best_move
+    )
+
     return best_score
+
 
 # ---- SearchThread (итеративное углубление) ----
 class SearchThread(threading.Thread):
@@ -441,7 +541,6 @@ def uci_loop():
     board = chess.Board()
     search_thread = None
     stop_event = threading.Event()
-
     print("id name DarkOnEngine")
     print("id author Dark and Classic")
     print("uciok")
@@ -452,36 +551,27 @@ def uci_loop():
             line = sys.stdin.readline()
             if not line:
                 break
-
             line = line.strip()
-            if not line:
+            if line == "":
                 continue
-
             parts = line.split()
             cmd = parts[0]
 
-            # ---------------- UCI ----------------
             if cmd == "uci":
                 print("id name DarkOnEngine")
                 print("id author Dark and Classic")
                 print("uciok")
                 sys.stdout.flush()
-
             elif cmd == "isready":
                 print("readyok")
                 sys.stdout.flush()
-
             elif cmd == "ucinewgame":
                 board = chess.Board()
-
-            # ---------------- POSITION ----------------
             elif cmd == "position":
                 idx = 1
-
                 if len(parts) >= 2 and parts[1] == "startpos":
                     board = chess.Board()
                     idx = 2
-
                 elif len(parts) >= 2 and parts[1] == "fen":
                     if len(parts) >= 8:
                         fen = " ".join(parts[2:8])
@@ -490,15 +580,12 @@ def uci_loop():
                         except Exception:
                             board = chess.Board()
                         idx = 8
-
                 if idx < len(parts) and parts[idx] == "moves":
-                    for mv in parts[idx + 1:]:
+                    for mv in parts[idx+1:]:
                         try:
                             board.push_uci(mv)
                         except Exception:
                             pass
-
-            # ---------------- GO ----------------
             elif cmd == "go":
                 wtime = btime = winc = binc = movetime = None
                 depth = None
@@ -506,17 +593,23 @@ def uci_loop():
 
                 while i < len(parts):
                     if parts[i] == "wtime":
-                        wtime = int(parts[i + 1]); i += 2
+                        wtime = int(parts[i + 1]);
+                        i += 2
                     elif parts[i] == "btime":
-                        btime = int(parts[i + 1]); i += 2
+                        btime = int(parts[i + 1]);
+                        i += 2
                     elif parts[i] == "winc":
-                        winc = int(parts[i + 1]); i += 2
+                        winc = int(parts[i + 1]);
+                        i += 2
                     elif parts[i] == "binc":
-                        binc = int(parts[i + 1]); i += 2
+                        binc = int(parts[i + 1]);
+                        i += 2
                     elif parts[i] == "movetime":
-                        movetime = int(parts[i + 1]); i += 2
+                        movetime = int(parts[i + 1]);
+                        i += 2
                     elif parts[i] == "depth":
-                        depth = int(parts[i + 1]); i += 2
+                        depth = int(parts[i + 1]);
+                        i += 2
                     else:
                         i += 1
 
@@ -530,7 +623,7 @@ def uci_loop():
                 if board.fullmove_number == 1:
                     legal_moves = list(board.legal_moves)
                     if legal_moves:
-                        mv = random.choice(legal_moves)
+                        mv = rnd.choice(legal_moves)
                         print(f"bestmove {mv.uci()}")
                         sys.stdout.flush()
                         continue
@@ -549,24 +642,24 @@ def uci_loop():
 
                 search_thread.start()
 
-            # ---------------- STOP ----------------
             elif cmd == "stop":
                 if search_thread and search_thread.is_alive():
                     stop_event.set()
                     search_thread.join(timeout=2.0)
+                # Ничего дополнительно не печатаем — поток печатает bestmove при завершении
 
-            # ---------------- QUIT ----------------
             elif cmd == "quit":
                 if search_thread and search_thread.is_alive():
                     stop_event.set()
                     search_thread.join(timeout=2.0)
                 break
+            else:
+                pass
 
         except Exception as e:
             print("error:", e, file=sys.stderr)
             sys.stderr.flush()
             break
-
 
 if __name__ == "__main__":
     uci_loop()
