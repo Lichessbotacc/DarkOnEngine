@@ -134,29 +134,7 @@ def evaluate(board: chess.Board):
     -50, -30, -30, -30, -30, -30, -30, -50
     ]
 
-def is_early_game(board):
-    # Prüft, ob es die Eröffnung ist (weniger als 3 Leichtfiguren entwickelt)
-    developed = len([sq for sq in board.pieces(chess.KNIGHT, chess.WHITE) if chess.square_rank(sq) > 1]) + \
-                len([sq for sq in board.pieces(chess.BISHOP, chess.WHITE) if chess.square_rank(sq) > 1])
-    return developed < 3
 
-def king_safety(board, color):
-    safety_score = 0
-    king_sq = board.king(color)
-    rank = chess.square_rank(king_sq)
-    file = chess.square_file(king_sq)
-    # Prüft, ob der König rochiert hat (Weiß: G1/H1, Schwarz: G8/H8)
-    if (color == chess.WHITE and file >= 5 and rank == 0) or (color == chess.BLACK and file >= 5 and rank == 7):
-        pawn_shield = 0
-        for f in (file-1, file, file+1):  # Felder F, G, H
-            if 0 <= f <= 7:
-                sq = chess.square(f, 1 if color == chess.WHITE else 6)  # Zweite/Reihensechste Reihe
-                piece = board.piece_at(sq)
-                if piece and piece.piece_type == chess.PAWN and piece.color == color:
-                    pawn_shield += 20  # Bonus für Bauern vor dem König
-        safety_score += pawn_shield
-    return safety_score
-    
     # ========= MATERIAL + PST =========
     for piece_type, value in PIECE_VALUES.items():
         for sq in board.pieces(piece_type, chess.WHITE):
@@ -183,9 +161,9 @@ def king_safety(board, color):
         score += KING_ENDGAME_PST[chess.square_mirror(bk)]
     else:
         if wk not in (chess.G1, chess.C1):
-            score -= 80
+            score -= 1000
         if bk not in (chess.G8, chess.C8):
-            score += 80
+            score += 1000
 
     # ========= BISHOP PAIR =========
     if len(board.pieces(chess.BISHOP, chess.WHITE)) == 2:
@@ -227,9 +205,9 @@ def king_safety(board, color):
                 return True
         return False
 
-    ROOK_OPEN = 25
-    ROOK_SEMI = 15
-    ROOK_7TH = 30
+    ROOK_OPEN = 10
+    ROOK_SEMI = 5
+    ROOK_7TH = 20
 
     for sq in board.pieces(chess.ROOK, chess.WHITE):
         f = chess.square_file(sq)
@@ -472,7 +450,7 @@ class SearchThread(threading.Thread):
         think_sec = calculate_think_time(remaining)
 
         # safety: minimum thinking time
-        return int(max(0.05, think_sec) * 1000)
+        return int(max(0.01, think_sec) * 1000)
 
     def run(self):
         ms = self.time_remaining_ms()
