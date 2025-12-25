@@ -134,7 +134,7 @@ def evaluate(board: chess.Board):
     -50, -30, -30, -30, -30, -30, -30, -50
     ]
 
-    def is_early_game(board):
+def is_early_game(board):
     # Prüft, ob es die Eröffnung ist (weniger als 3 Leichtfiguren entwickelt)
     developed = len([sq for sq in board.pieces(chess.KNIGHT, chess.WHITE) if chess.square_rank(sq) > 1]) + \
                 len([sq for sq in board.pieces(chess.BISHOP, chess.WHITE) if chess.square_rank(sq) > 1])
