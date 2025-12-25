@@ -161,9 +161,9 @@ def evaluate(board: chess.Board):
         score += KING_ENDGAME_PST[chess.square_mirror(bk)]
     else:
         if wk not in (chess.G1, chess.C1):
-            score -= 1000
+            score -= 80
         if bk not in (chess.G8, chess.C8):
-            score += 1000
+            score += 80
 
     # ========= BISHOP PAIR =========
     if len(board.pieces(chess.BISHOP, chess.WHITE)) == 2:
@@ -207,7 +207,7 @@ def evaluate(board: chess.Board):
 
     ROOK_OPEN = 25
     ROOK_SEMI = 15
-    ROOK_7TH = 40
+    ROOK_7TH = 30
 
     for sq in board.pieces(chess.ROOK, chess.WHITE):
         f = chess.square_file(sq)
@@ -450,14 +450,14 @@ class SearchThread(threading.Thread):
         think_sec = calculate_think_time(remaining)
 
         # safety: minimum thinking time
-        return int(max(0.10, think_sec) * 1000)
+        return int(max(0.05, think_sec) * 1000)
 
     def run(self):
         ms = self.time_remaining_ms()
         self.state.time_limit = ms / 1000.0
         self.state.start_time = time.time()
 
-        depth = 2
+        depth = 1
         try:
             while not self.stop_event.is_set():
                 if self.max_depth and depth > self.max_depth:
