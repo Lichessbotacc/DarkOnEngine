@@ -508,7 +508,7 @@ class SearchThread(threading.Thread):
                 if (time.time() - self.state.start_time) > self.state.time_limit:
                     break
 
-                depth += 1
+                depth += 2
 
         except SearchAbort:
             # корректное окончание
