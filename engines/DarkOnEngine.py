@@ -48,7 +48,7 @@ PST = {
 
     chess.BISHOP: [
     -20, -10, -10, -10, -10, -10, -10, -20,
-    -10,   5,   0,   0,   0,   0,   5, -10,
+    -10,  10,   0,   5,   5,   0,  10, -10,
     -10,  10,  10,  10,  10,  10,  10, -10,
     -10,   0,  10,  10,  10,  10,   0, -10,
     -10,   5,   5,  10,  10,   5,   5, -10,
@@ -79,9 +79,9 @@ def calculate_think_time(remaining_time_ms):
     elif t >= 60:      # 1 minute
         return rnd.uniform(3, 8)
     elif t >= 30:
-        return rnd.uniform(2, 4)
+        return rnd.uniform(0, 4)
     elif t >= 5:
-        return rnd.uniform(0, 3)
+        return rnd.uniform(0, 2)
     else:
         return 0.00    # panic
 
