@@ -205,9 +205,9 @@ def evaluate(board: chess.Board):
                 return True
         return False
 
-    ROOK_OPEN = 10
-    ROOK_SEMI = 5
-    ROOK_7TH = 20
+    ROOK_OPEN = 25
+    ROOK_SEMI = 15
+    ROOK_7TH = 40
 
     for sq in board.pieces(chess.ROOK, chess.WHITE):
         f = chess.square_file(sq)
@@ -450,7 +450,7 @@ class SearchThread(threading.Thread):
         think_sec = calculate_think_time(remaining)
 
         # safety: minimum thinking time
-        return int(max(0.01, think_sec) * 1000)
+        return int(max(0.10, think_sec) * 1000)
 
     def run(self):
         ms = self.time_remaining_ms()
