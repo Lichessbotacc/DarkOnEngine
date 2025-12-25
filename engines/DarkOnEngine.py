@@ -150,9 +150,9 @@ def evaluate(board: chess.Board):
         score += KING_ENDGAME_PST[chess.square_mirror(bk)]
     else:
         if wk not in (chess.G1, chess.C1):
-            score -= 40
+            score -= 80
         if bk not in (chess.G8, chess.C8):
-            score += 40
+            score += 80
 
     # ========= BISHOP PAIR =========
     if len(board.pieces(chess.BISHOP, chess.WHITE)) == 2:
