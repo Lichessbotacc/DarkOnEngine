@@ -54,23 +54,23 @@ def calculate_think_time(remaining_time_ms):
     t = remaining_time_ms / 1000  # seconds
 
     if t >= 1800:      # 30 minutes
-        return rnd.uniform(20, 30)
+        return rnd.uniform(20, 120)
     elif t >= 1200:    # 20 minutes
-        return rnd.uniform(16, 25)
+        return rnd.uniform(16, 60)
     elif t >= 600:     # 10 minutes
-        return rnd.uniform(12, 20)
+        return rnd.uniform(5, 30)
     elif t >= 420:     # 7 minutes
-        return rnd.uniform(8, 15)
+        return rnd.uniform(5, 20)
     elif t >= 300:     # 5 minutes
         return rnd.uniform(6, 12)
     elif t >= 180:     # 3 minutes
         return rnd.uniform(4, 10)
     elif t >= 60:      # 1 minute
-        return rnd.uniform(2, 6)
+        return rnd.uniform(3, 8)
     elif t >= 30:
-        return rnd.uniform(0, 2)
+        return rnd.uniform(2, 4)
     elif t >= 5:
-        return rnd.uniform(0, 1)
+        return rnd.uniform(0, 3)
     else:
         return 0.00    # panic
 
