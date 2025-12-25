@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 
+
 import chess
 import sys
 import time
 import threading
 from collections import defaultdict, namedtuple
+import random as rnd
 
 INF = 99999999
+DRAW_PENALTY = 150      # штраф за повтор
+WIN_THRESHOLD = 200    # считаем позицию выигранной (cp)
+
 
 PIECE_VALUES = {
     chess.PAWN: 100,
@@ -17,8 +22,8 @@ PIECE_VALUES = {
     chess.KING: 20000
 }
 
-# Небольшие PST для примера
 PST = {
+
     chess.PAWN: [
          0,  0,  0,  0,  0,  0,  0,  0,
          5, 10, 10,-20,-20, 10, 10,  5,
@@ -29,6 +34,7 @@ PST = {
         50, 50, 50, 50, 50, 50, 50, 50,
          0,  0,  0,  0,  0,  0,  0,  0
     ],
+
     chess.KNIGHT: [
         -50,-40,-30,-30,-30,-30,-40,-50,
         -40,-20,  0,  5,  5,  0,-20,-40,
@@ -38,13 +44,47 @@ PST = {
         -30,  0, 10, 15, 15, 10,  0,-30,
         -40,-20,  0,  0,  0,  0,-20,-40,
         -50,-40,-30,-30,-30,-30,-40,-50
-    ]
+    ],
+
+    chess.BISHOP: [
+    -20, -10, -10, -10, -10, -10, -10, -20,
+    -10,  10,   0,   5,   5,   0,  10, -10,
+    -10,  10,  10,  10,  10,  10,  10, -10,
+    -10,   0,  10,  10,  10,  10,   0, -10,
+    -10,   5,   5,  10,  10,   5,   5, -10,
+    -10,   0,   5,  10,  10,   5,   0, -10,
+    -10,   0,   0,   0,   0,   0,   0, -10,
+    -20, -10, -10, -10, -10, -10, -10, -20
+    ],
 }
 
 TTEntry = namedtuple("TTEntry", ["depth", "flag", "score", "best_move"])
 # flag: 'EXACT', 'LOWER', 'UPPER'
 
-# ---- Утилиты ----
+def calculate_think_time(remaining_time_ms):
+    t = remaining_time_ms / 1000  # seconds
+
+    if t >= 1800:      # 30 minutes
+        return rnd.uniform(20, 120)
+    elif t >= 1200:    # 20 minutes
+        return rnd.uniform(16, 60)
+    elif t >= 600:     # 10 minutes
+        return rnd.uniform(5, 30)
+    elif t >= 420:     # 7 minutes
+        return rnd.uniform(5, 20)
+    elif t >= 300:     # 5 minutes
+        return rnd.uniform(6, 12)
+    elif t >= 180:     # 3 minutes
+        return rnd.uniform(4, 10)
+    elif t >= 60:      # 1 minute
+        return rnd.uniform(3, 8)
+    elif t >= 30:
+        return rnd.uniform(0, 4)
+    elif t >= 5:
+        return rnd.uniform(0, 2)
+    else:
+        return 0.00    # panic
+
 
 def fast_board_key(board: chess.Board):
     return (board.board_fen(), board.turn, board.castling_xfen(), board.ep_square, board.halfmove_clock)
@@ -74,67 +114,168 @@ def mvv_lva_score(board, move):
 # ---- Оценка позиции ----
 
 def evaluate(board: chess.Board):
-
+    # ========= TERMINAL =========
     if board.is_checkmate():
         return -INF + 1
     if board.is_stalemate() or board.is_insufficient_material():
         return 0
 
+    score = 0
     material = 0
-    pst_score = 0
 
-    for piece_type in PIECE_VALUES:
+    KING_ENDGAME_PST = [
+    -50, -30, -30, -30, -30, -30, -30, -50,
+    -30, -10,   0,   0,   0,   0, -10, -30,
+    -30,   0,  10,  15,  15,  10,   0, -30,
+    -30,   0,  15,  20,  20,  15,   0, -30,
+    -30,   0,  15,  20,  20,  15,   0, -30,
+    -30,   0,  10,  15,  15,  10,   0, -30,
+    -30, -10,   0,   0,   0,   0, -10, -30,
+    -50, -30, -30, -30, -30, -30, -30, -50
+    ]
+
+
+    # ========= MATERIAL + PST =========
+    for piece_type, value in PIECE_VALUES.items():
         for sq in board.pieces(piece_type, chess.WHITE):
-            material += PIECE_VALUES[piece_type]
+            material += value
             if piece_type in PST:
-                pst_score += PST[piece_type][sq]
+                score += PST[piece_type][sq]
+
         for sq in board.pieces(piece_type, chess.BLACK):
-            material -= PIECE_VALUES[piece_type]
+            material -= value
             if piece_type in PST:
-                pst_score -= PST[piece_type][chess.square_mirror(sq)]
+                score -= PST[piece_type][chess.square_mirror(sq)]
 
-    # mobility: безопасный подсчёт
-    mobility_count = sum(1 for _ in board.legal_moves)
-    mobility = 10 * mobility_count
+    score += material
 
-    check_bonus = -50 if board.is_check() else 0
+    # ========= GAME PHASE =========
+    endgame = material < 2400
 
-    # ========= BISHOP =========
-    for sq in board.pieces(chess.BISHOP, chess.WHITE):
-        blocked = 0
-        for pawn_sq in board.pieces(chess.PAWN, chess.WHITE):
-            if chess.square_color(sq) == chess.square_color(pawn_sq):
-                blocked += 1
-        score -= blocked * 4
+    wk = board.king(chess.WHITE)
+    bk = board.king(chess.BLACK)
 
-    for sq in board.pieces(chess.BISHOP, chess.BLACK):
-        blocked = 0
-        for pawn_sq in board.pieces(chess.PAWN, chess.BLACK):
-            if chess.square_color(sq) == chess.square_color(pawn_sq):
-                blocked += 1
-        score += blocked * 4
+    # ========= KING =========
+    if endgame:
+        score -= KING_ENDGAME_PST[wk]
+        score += KING_ENDGAME_PST[chess.square_mirror(bk)]
+    else:
+        if wk not in (chess.G1, chess.C1):
+            score -= 1000
+        if bk not in (chess.G8, chess.C8):
+            score += 1000
+
+    # ========= BISHOP PAIR =========
+    if len(board.pieces(chess.BISHOP, chess.WHITE)) == 2:
+        score += 30
+    if len(board.pieces(chess.BISHOP, chess.BLACK)) == 2:
+        score -= 30
+
+    # ========= PAWN STRUCTURE =========
+    PASSED_PAWN_BONUS = [0, 10, 20, 35, 60, 100, 140, 0]
+
+    def is_passed_pawn(sq, color):
+        file = chess.square_file(sq)
+        rank = chess.square_rank(sq)
+        direction = 1 if color == chess.WHITE else -1
+        enemy = not color
+
+        for f in (file - 1, file, file + 1):
+            if 0 <= f <= 7:
+                r = rank + direction
+                while 0 <= r <= 7:
+                    p = board.piece_at(chess.square(f, r))
+                    if p and p.piece_type == chess.PAWN and p.color == enemy:
+                        return False
+                    r += direction
+        return True
+
+    for sq in board.pieces(chess.PAWN, chess.WHITE):
+        if is_passed_pawn(sq, chess.WHITE):
+            score += PASSED_PAWN_BONUS[chess.square_rank(sq)]
+
+    for sq in board.pieces(chess.PAWN, chess.BLACK):
+        if is_passed_pawn(sq, chess.BLACK):
+            score -= PASSED_PAWN_BONUS[7 - chess.square_rank(sq)]
+
+    # ========= ROOKS =========
+    def file_has_pawn(file, color):
+        for sq in board.pieces(chess.PAWN, color):
+            if chess.square_file(sq) == file:
+                return True
+        return False
+
+    ROOK_OPEN = 10
+    ROOK_SEMI = 5
+    ROOK_7TH = 20
+
+    for sq in board.pieces(chess.ROOK, chess.WHITE):
+        f = chess.square_file(sq)
+        if not file_has_pawn(f, chess.WHITE):
+            score += ROOK_OPEN if not file_has_pawn(f, chess.BLACK) else ROOK_SEMI
+        if chess.square_rank(sq) == 6:
+            score += ROOK_7TH
+
+    for sq in board.pieces(chess.ROOK, chess.BLACK):
+        f = chess.square_file(sq)
+        if not file_has_pawn(f, chess.BLACK):
+            score -= ROOK_OPEN if not file_has_pawn(f, chess.WHITE) else ROOK_SEMI
+        if chess.square_rank(sq) == 1:
+            score -= ROOK_7TH
+
+    # ========= KNIGHT OUTPOST =========
+    KNIGHT_OUTPOST = 25
+
+    def knight_outpost(sq, color):
+        rank = chess.square_rank(sq)
+        if color == chess.WHITE and rank < 3:
+            return False
+        if color == chess.BLACK and rank > 4:
+            return False
+
+        file = chess.square_file(sq)
+        enemy = not color
+        direction = 1 if color == chess.WHITE else -1
+
+        for df in (-1, 1):
+            f = file + df
+            if 0 <= f <= 7:
+                r = rank + direction
+                while 0 <= r <= 7:
+                    p = board.piece_at(chess.square(f, r))
+                    if p and p.piece_type == chess.PAWN and p.color == enemy:
+                        return False
+                    r += direction
+        return True
+
+    for sq in board.pieces(chess.KNIGHT, chess.WHITE):
+        if knight_outpost(sq, chess.WHITE):
+            score += KNIGHT_OUTPOST
+
+    for sq in board.pieces(chess.KNIGHT, chess.BLACK):
+        if knight_outpost(sq, chess.BLACK):
+            score -= KNIGHT_OUTPOST
+
+    # ========= SIMPLIFY WHEN WINNING =========
+    if material > 200:
+        score += 5 * (
+            len(board.pieces(chess.QUEEN, chess.BLACK)) +
+            len(board.pieces(chess.ROOK, chess.BLACK))
+        )
+
+    if material < -200:
+        score -= 5 * (
+            len(board.pieces(chess.QUEEN, chess.WHITE)) +
+            len(board.pieces(chess.ROOK, chess.WHITE))
+        )
+
+    # ========= SIDE TO MOVE =========
+    return score if board.turn == chess.WHITE else -score
 
 
-    DEV_SQUARES_WHITE = {chess.C4, chess.B5, chess.E3, chess.F4, chess.G5}
-    DEV_SQUARES_BLACK = {chess.C5, chess.B4, chess.E6, chess.F5, chess.G4}
-
-    for sq in board.pieces(chess.BISHOP, chess.WHITE):
-        if sq in DEV_SQUARES_WHITE:
-            score += 15
-
-    for sq in board.pieces(chess.BISHOP, chess.BLACK):
-        if sq in DEV_SQUARES_BLACK:
-            score -= 15
-
-    if board.fullmove_number < 8:
-        for sq in board.pieces(chess.QUEEN, chess.WHITE):
-            score -= 20
-        for sq in board.pieces(chess.QUEEN, chess.BLACK):
-            score += 20
 
 
-    score_white = material + pst_score + mobility + check_bonus
-    return score_white if board.turn == chess.WHITE else -score_white
+
 
 # ---- TT и state ----
 class SearchState:
@@ -148,6 +289,7 @@ class SearchState:
 class SearchAbort(Exception):
     pass
 
+# ---- Кви-поиск ----
 
 def quiescence(board: chess.Board, alpha: int, beta: int, state: SearchState, stop_event: threading.Event):
     if stop_event.is_set():
@@ -183,7 +325,9 @@ def quiescence(board: chess.Board, alpha: int, beta: int, state: SearchState, st
 
 # ---- Negamax с alpha-beta и TT ----
 
-def negamax(board: chess.Board, depth: int, alpha: int, beta: int, state: SearchState, stop_event: threading.Event):
+def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
+            state: SearchState, stop_event: threading.Event):
+
     if stop_event.is_set():
         raise SearchAbort()
     if state.start_time and (time.time() - state.start_time) > state.time_limit:
@@ -227,12 +371,18 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int, state: Search
     for move in moves:
         if stop_event.is_set():
             raise SearchAbort()
-        mover = board.turn  # сторона, делающая ход
+
+        mover = board.turn
         board.push(move)
+
         try:
             score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
         finally:
             board.pop()
+
+        if board.can_claim_threefold_repetition():
+            if score > WIN_THRESHOLD:
+                score -= DRAW_PENALTY
 
         if score > best_score:
             best_score = score
@@ -240,12 +390,10 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int, state: Search
 
         if score > alpha:
             alpha = score
-            # обновляем history для хода, который привёл к улучшению
             if not board.is_capture(move):
                 state.history[(mover, move.from_square, move.to_square)] += 2 ** depth
 
         if alpha >= beta:
-            # beta-cutoff: запомним ход
             state.history[(mover, move.from_square, move.to_square)] += 2 ** depth
             break
 
@@ -256,8 +404,15 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int, state: Search
     else:
         flag = 'EXACT'
 
-    state.tt[key] = TTEntry(depth=depth, flag=flag, score=best_score, best_move=best_move)
+    state.tt[key] = TTEntry(
+        depth=depth,
+        flag=flag,
+        score=best_score,
+        best_move=best_move
+    )
+
     return best_score
+
 
 # ---- SearchThread (итеративное углубление) ----
 class SearchThread(threading.Thread):
@@ -284,36 +439,25 @@ class SearchThread(threading.Thread):
         if self.movetime:
             return self.movetime
 
-        # определяем оставшееся время
         if self.root_board.turn == chess.WHITE:
             remaining = self.wtime
-            inc = self.winc
         else:
             remaining = self.btime
-            inc = self.binc
 
         if remaining is None:
-            return 10000
+            return 500  # 0.5 sec fallback
 
-        # ---- PANIC MODE (флаг падает) ----
-        # при <= 1 секунде поиск не имеет смысла
-        if remaining <= 1000:
-            return 0
+        think_sec = calculate_think_time(remaining)
 
-        # ---- LOW TIME MODE ----
-        # быстрый, неглубокий поиск
-        if remaining <= 3000:
-            return max(20, remaining // 40)
-
-
-        return max(20, remaining // 20 + inc * 2)
+        # safety: minimum thinking time
+        return int(max(0.01, think_sec) * 1000)
 
     def run(self):
         ms = self.time_remaining_ms()
         self.state.time_limit = ms / 1000.0
         self.state.start_time = time.time()
 
-        depth = 1
+        depth = 2
         try:
             while not self.stop_event.is_set():
                 if self.max_depth and depth > self.max_depth:
@@ -375,7 +519,7 @@ class SearchThread(threading.Thread):
                 if (time.time() - self.state.start_time) > self.state.time_limit:
                     break
 
-                depth += 1
+                depth += 2
 
         except SearchAbort:
             # корректное окончание
@@ -457,51 +601,57 @@ def uci_loop():
                 wtime = btime = winc = binc = movetime = None
                 depth = None
                 i = 1
+
                 while i < len(parts):
                     if parts[i] == "wtime":
-                        try:
-                            wtime = int(parts[i+1]); i += 2
-                        except Exception:
-                            i += 1
+                        wtime = int(parts[i + 1]);
+                        i += 2
                     elif parts[i] == "btime":
-                        try:
-                            btime = int(parts[i+1]); i += 2
-                        except Exception:
-                            i += 1
+                        btime = int(parts[i + 1]);
+                        i += 2
                     elif parts[i] == "winc":
-                        try:
-                            winc = int(parts[i+1]); i += 2
-                        except Exception:
-                            i += 1
+                        winc = int(parts[i + 1]);
+                        i += 2
                     elif parts[i] == "binc":
-                        try:
-                            binc = int(parts[i+1]); i += 2
-                        except Exception:
-                            i += 1
+                        binc = int(parts[i + 1]);
+                        i += 2
                     elif parts[i] == "movetime":
-                        try:
-                            movetime = int(parts[i+1]); i += 2
-                        except Exception:
-                            i += 1
+                        movetime = int(parts[i + 1]);
+                        i += 2
                     elif parts[i] == "depth":
-                        try:
-                            depth = int(parts[i+1]); i += 2
-                        except Exception:
-                            i += 1
+                        depth = int(parts[i + 1]);
+                        i += 2
                     else:
                         i += 1
 
-                # остановим предыдущий поиск, если есть
+                # остановить предыдущий поиск
                 if search_thread and search_thread.is_alive():
                     stop_event.set()
                     search_thread.join(timeout=1.0)
                     stop_event.clear()
 
-                stop_event = threading.Event()
-                search_thread = SearchThread(board, wtime=wtime, btime=btime, winc=winc or 0, binc=binc or 0, movetime=movetime, max_depth=depth, stop_event=stop_event)
-                # запускаем асинхронно — поток сам выведет bestmove при завершении
-                search_thread.start()
+                # random first move
+                if board.fullmove_number == 1:
+                    legal_moves = list(board.legal_moves)
+                    if legal_moves:
+                        mv = rnd.choice(legal_moves)
+                        print(f"bestmove {mv.uci()}")
+                        sys.stdout.flush()
+                        continue
 
+                stop_event = threading.Event()
+                search_thread = SearchThread(
+                    board,
+                    wtime=wtime,
+                    btime=btime,
+                    winc=winc or 0,
+                    binc=binc or 0,
+                    movetime=movetime,
+                    max_depth=depth,
+                    stop_event=stop_event
+                )
+
+                search_thread.start()
 
             elif cmd == "stop":
                 if search_thread and search_thread.is_alive():
