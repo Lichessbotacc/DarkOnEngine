@@ -9,7 +9,7 @@ from collections import defaultdict, namedtuple
 import random as rnd
 
 INF = 99999999
-DRAW_PENALTY = 150      # штраф за повтор
+DRAW_PENALTY = 10000      # штраф за повтор
 WIN_THRESHOLD = 200    # считаем позицию выигранной (cp)
 
 
@@ -385,6 +385,10 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
     moves.sort(key=move_key)
 
     for move in moves:
+                # ❌ Zug erzeugt 3-fache Wiederholung → komplett verbieten
+        if board.is_repetition(2):
+            continue
+
         if stop_event.is_set():
             raise SearchAbort()
 
