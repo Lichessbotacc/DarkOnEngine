@@ -166,20 +166,24 @@ else:
         score += 20
 
 
-# ========= CASTLING BONUS =========
-CASTLING_BONUS = 60
+    # ========= CASTLING BONUS =========
+    CASTLING_BONUS = 60
 
-# White
-if wk == chess.G1 and not board.has_kingside_castling_rights(chess.WHITE):
-    score += CASTLING_BONUS
-elif wk == chess.C1 and not board.has_queenside_castling_rights(chess.WHITE):
-    score += CASTLING_BONUS
+    # White
+    if wk == chess.G1 and not board.has_kingside_castling_rights(chess.WHITE):
+        score += CASTLING_BONUS
+    elif wk == chess.C1 and not board.has_queenside_castling_rights(chess.WHITE):
+        score += CASTLING_BONUS
 
-# Black
-if bk == chess.G8 and not board.has_kingside_castling_rights(chess.BLACK):
-    score -= CASTLING_BONUS
-elif bk == chess.C8 and not board.has_queenside_castling_rights(chess.BLACK):
-    score -= CASTLING_BONUS
+    # Black
+    if bk == chess.G8 and not board.has_kingside_castling_rights(chess.BLACK):
+        score -= CASTLING_BONUS
+    elif bk == chess.C8 and not board.has_queenside_castling_rights(chess.BLACK):
+        score -= CASTLING_BONUS
+
+
+    # ========= SIDE TO MOVE =========
+    return score if board.turn == chess.WHITE else -score
 
     # ========= BISHOP PAIR =========
     if len(board.pieces(chess.BISHOP, chess.WHITE)) == 2:
