@@ -124,16 +124,15 @@ def evaluate(board: chess.Board):
     material = 0
 
     KING_ENDGAME_PST = [
-    -50, -30, -30, -30, -30, -30, -30, -50,
-    -30, -10,   0,   0,   0,   0, -10, -30,
-    -30,   0,  10,  15,  15,  10,   0, -30,
-    -30,   0,  15,  20,  20,  15,   0, -30,
-    -30,   0,  15,  20,  20,  15,   0, -30,
-    -30,   0,  10,  15,  15,  10,   0, -30,
-    -30, -10,   0,   0,   0,   0, -10, -30,
-    -50, -30, -30, -30, -30, -30, -30, -50
+        -50, -30, -30, -30, -30, -30, -30, -50,
+        -30, -10,   0,   0,   0,   0, -10, -30,
+        -30,   0,  10,  15,  15,  10,   0, -30,
+        -30,   0,  15,  20,  20,  15,   0, -30,
+        -30,   0,  15,  20,  20,  15,   0, -30,
+        -30,   0,  10,  15,  15,  10,   0, -30,
+        -30, -10,   0,   0,   0,   0, -10, -30,
+        -50, -30, -30, -30, -30, -30, -30, -50
     ]
-
 
     # ========= MATERIAL + PST =========
     for piece_type, value in PIECE_VALUES.items():
@@ -155,35 +154,32 @@ def evaluate(board: chess.Board):
     wk = board.king(chess.WHITE)
     bk = board.king(chess.BLACK)
 
-   # ========= KING =========
-if endgame:
-    score -= KING_ENDGAME_PST[wk]
-    score += KING_ENDGAME_PST[chess.square_mirror(bk)]
-else:
-    if wk == chess.E1:
-        score -= 20
-    if bk == chess.E8:
-        score += 20
-
+    # ========= KING =========
+    if endgame:
+        score -= KING_ENDGAME_PST[wk]
+        score += KING_ENDGAME_PST[chess.square_mirror(bk)]
+    else:
+        if wk == chess.E1:
+            score -= 20
+        if bk == chess.E8:
+            score += 20
 
     # ========= CASTLING BONUS =========
     CASTLING_BONUS = 60
 
-    # White
     if wk == chess.G1 and not board.has_kingside_castling_rights(chess.WHITE):
         score += CASTLING_BONUS
     elif wk == chess.C1 and not board.has_queenside_castling_rights(chess.WHITE):
         score += CASTLING_BONUS
 
-    # Black
     if bk == chess.G8 and not board.has_kingside_castling_rights(chess.BLACK):
         score -= CASTLING_BONUS
     elif bk == chess.C8 and not board.has_queenside_castling_rights(chess.BLACK):
         score -= CASTLING_BONUS
 
-
     # ========= SIDE TO MOVE =========
     return score if board.turn == chess.WHITE else -score
+
 
     # ========= BISHOP PAIR =========
     if len(board.pieces(chess.BISHOP, chess.WHITE)) == 2:
