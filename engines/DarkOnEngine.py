@@ -155,15 +155,31 @@ def evaluate(board: chess.Board):
     wk = board.king(chess.WHITE)
     bk = board.king(chess.BLACK)
 
-    # ========= KING =========
-    if endgame:
-        score -= KING_ENDGAME_PST[wk]
-        score += KING_ENDGAME_PST[chess.square_mirror(bk)]
-    else:
-        if wk not in (chess.G1, chess.C1):
-            score -= 80
-        if bk not in (chess.G8, chess.C8):
-            score += 80
+   # ========= KING =========
+if endgame:
+    score -= KING_ENDGAME_PST[wk]
+    score += KING_ENDGAME_PST[chess.square_mirror(bk)]
+else:
+    if wk == chess.E1:
+        score -= 20
+    if bk == chess.E8:
+        score += 20
+
+
+# ========= CASTLING BONUS =========
+CASTLING_BONUS = 60
+
+# White
+if wk == chess.G1 and not board.has_kingside_castling_rights(chess.WHITE):
+    score += CASTLING_BONUS
+elif wk == chess.C1 and not board.has_queenside_castling_rights(chess.WHITE):
+    score += CASTLING_BONUS
+
+# Black
+if bk == chess.G8 and not board.has_kingside_castling_rights(chess.BLACK):
+    score -= CASTLING_BONUS
+elif bk == chess.C8 and not board.has_queenside_castling_rights(chess.BLACK):
+    score -= CASTLING_BONUS
 
     # ========= BISHOP PAIR =========
     if len(board.pieces(chess.BISHOP, chess.WHITE)) == 2:
