@@ -165,7 +165,7 @@ def evaluate(board: chess.Board):
             score += 20
 
     # ========= CASTLING BONUS =========
-    CASTLING_BONUS = 60
+    CASTLING_BONUS = 80
 
     if wk == chess.G1 and not board.has_kingside_castling_rights(chess.WHITE):
         score += CASTLING_BONUS
