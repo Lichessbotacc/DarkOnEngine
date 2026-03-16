@@ -392,7 +392,7 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
     mover = board.turn
     board.push(move)
 
-    # ❌ verhindert Remis durch Wiederholung
+    # ❌ verhindert 3-fold repetition
     if board.can_claim_threefold_repetition():
         board.pop()
         continue
