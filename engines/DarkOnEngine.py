@@ -385,24 +385,24 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
     moves.sort(key=move_key)
 
     for move in moves:
-                # ❌ Zug erzeugt 3-fache Wiederholung → komplett verbieten
-        if board.is_repetition(2):
-            continue
 
-        if stop_event.is_set():
-            raise SearchAbort()
+    if stop_event.is_set():
+        raise SearchAbort()
 
-        mover = board.turn
-        board.push(move)
+    mover = board.turn
+    board.push(move)
 
-        try:
-            score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
-        finally:
-            board.pop()
+    # ❌ verhindert Remis durch Wiederholung
+    if board.can_claim_threefold_repetition():
+        board.pop()
+        continue
 
-        if board.can_claim_threefold_repetition():
-            if score > WIN_THRESHOLD:
-                score -= DRAW_PENALTY
+    try:
+        score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
+    finally:
+        board.pop()
+
+        
 
         if score > best_score:
             best_score = score
