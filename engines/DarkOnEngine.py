@@ -384,57 +384,57 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
 
     moves.sort(key=move_key)
 
-for mv in moves:
-    if self.stop_event.is_set():
-        break
+    for mv in moves:
+        if self.stop_event.is_set():
+            break
 
-    mover = self.root_board.turn
-    self.root_board.push(mv)
+        mover = self.root_board.turn
+        self.root_board.push(mv)
 
-    # sofortige 3-fold repetition verbieten
-    if self.root_board.can_claim_threefold_repetition():
-        current_eval = evaluate(self.root_board)
-        if current_eval > -WIN_THRESHOLD:
+        if self.root_board.can_claim_threefold_repetition():
+            current_eval = evaluate(self.root_board)
+            if current_eval > -WIN_THRESHOLD:
+                self.root_board.pop()
+                continue
+
+        try:
+            score = -negamax(self.root_board, depth - 1, -INF, INF, self.state, self.stop_event)
+        except SearchAbort:
             self.root_board.pop()
-            continue
+            raise
 
-    try:
-        score = -negamax(self.root_board, depth - 1, -INF, INF, self.state, self.stop_event)
-    except SearchAbort:
         self.root_board.pop()
-        raise
-    self.root_board.pop()
 
-    if score > best_score:
-        best_score = score
-        best_move = mv
+        if score > best_score:
+            best_score = score
+            best_move = mv
 
-    if score > alpha:
-        alpha = score
-        if not self.root_board.is_capture(mv):
+        if score > alpha:
+            alpha = score
+            if not self.root_board.is_capture(mv):
+                self.state.history[(mover, mv.from_square, mv.to_square)] += 2 ** depth
+
+        if alpha >= beta:
             self.state.history[(mover, mv.from_square, mv.to_square)] += 2 ** depth
+            break
 
-    if alpha >= beta:
-        self.state.history[(mover, mv.from_square, mv.to_square)] += 2 ** depth
-        break
+    # ← Hier endet die for-Schleife, aber wir sind noch in der Funktion
 
+    if best_score >= beta_orig:
+        flag = 'LOWER'
+    elif best_score <= alpha_orig:
+        flag = 'UPPER'
+    else:
+        flag = 'EXACT'
 
-# NACH der Schleife
-if best_score >= beta_orig:
-    flag = 'LOWER'
-elif best_score <= alpha_orig:
-    flag = 'UPPER'
-else:
-    flag = 'EXACT'
+    self.state.tt[key] = TTEntry(
+        depth=depth,
+        flag=flag,
+        score=best_score,
+        best_move=best_move
+    )
 
-self.state.tt[key] = TTEntry(
-    depth=depth,
-    flag=flag,
-    score=best_score,
-    best_move=best_move
-)
-
-return best_score
+    return best_score
 
 # ---- SearchThread (итеративное углубление) ----
 class SearchThread(threading.Thread):
