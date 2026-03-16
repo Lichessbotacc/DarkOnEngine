@@ -384,7 +384,11 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
 
     moves.sort(key=move_key)
 
-    for move in moves:
+    moves = list(board.legal_moves)
+
+moves.sort(key=move_key)
+
+for move in moves:
 
     if stop_event.is_set():
         raise SearchAbort()
@@ -392,7 +396,7 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
     mover = board.turn
     board.push(move)
 
-    # ❌ verhindert 3-fold repetition
+    # verhindert 3-fold repetition
     if board.can_claim_threefold_repetition():
         board.pop()
         continue
