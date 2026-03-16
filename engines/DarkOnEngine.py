@@ -392,7 +392,7 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
     # Kommentar → keine Einrückung nötig, darf aber so sein
     if board.is_repetition(3):            # korrekt eingerückt
         board.pop()                       # korrekt eingerückt unter if
-            continue                          # korrekt eingerückt unter if
+    continue                          # korrekt eingerückt unter if
         try:
             score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
         finally:
