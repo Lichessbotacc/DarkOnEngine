@@ -384,59 +384,57 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
 
     moves.sort(key=move_key)
 
-for move in moves:
-    # ❌ Skip move that causes 3-fold repetition
-    board.push(move)
-    if board.is_repetition(3):
-        board.pop()
-        continue
-    board.pop()
+for mv in moves:
+    if self.stop_event.is_set():
+        break
 
-    if stop_event.is_set():
-        raise SearchAbort()
+    mover = self.root_board.turn
+    self.root_board.push(mv)
+
+    # sofortige 3-fold repetition verbieten
+    if self.root_board.can_claim_threefold_repetition():
+        current_eval = evaluate(self.root_board)
+        if current_eval > -WIN_THRESHOLD:
+            self.root_board.pop()
+            continue
+
+    try:
+        score = -negamax(self.root_board, depth - 1, -INF, INF, self.state, self.stop_event)
+    except SearchAbort:
+        self.root_board.pop()
+        raise
+    self.root_board.pop()
+
+    if score > best_score:
+        best_score = score
+        best_move = mv
+
+    if score > alpha:
+        alpha = score
+        if not self.root_board.is_capture(mv):
+            self.state.history[(mover, mv.from_square, mv.to_square)] += 2 ** depth
+
+    if alpha >= beta:
+        self.state.history[(mover, mv.from_square, mv.to_square)] += 2 ** depth
+        break
 
 
-        mover = board.turn
-        board.push(move)
+# NACH der Schleife
+if best_score >= beta_orig:
+    flag = 'LOWER'
+elif best_score <= alpha_orig:
+    flag = 'UPPER'
+else:
+    flag = 'EXACT'
 
-        try:
-            score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
-        finally:
-            board.pop()
+self.state.tt[key] = TTEntry(
+    depth=depth,
+    flag=flag,
+    score=best_score,
+    best_move=best_move
+)
 
-        if board.can_claim_threefold_repetition():
-            if score > WIN_THRESHOLD:
-                score -= DRAW_PENALTY
-
-        if score > best_score:
-            best_score = score
-            best_move = move
-
-        if score > alpha:
-            alpha = score
-            if not board.is_capture(move):
-                state.history[(mover, move.from_square, move.to_square)] += 2 ** depth
-
-        if alpha >= beta:
-            state.history[(mover, move.from_square, move.to_square)] += 2 ** depth
-            break
-
-    if best_score >= beta_orig:
-        flag = 'LOWER'
-    elif best_score <= alpha_orig:
-        flag = 'UPPER'
-    else:
-        flag = 'EXACT'
-
-    state.tt[key] = TTEntry(
-        depth=depth,
-        flag=flag,
-        score=best_score,
-        best_move=best_move
-    )
-
-    return best_score
-
+return best_score
 
 # ---- SearchThread (итеративное углубление) ----
 class SearchThread(threading.Thread):
