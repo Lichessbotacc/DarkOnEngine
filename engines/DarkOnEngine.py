@@ -384,41 +384,38 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
 
     moves.sort(key=move_key)
 
-    for mv in moves:
-        if self.stop_event.is_set():
-            break
+    for move in moves:
+                # ❌ Zug erzeugt 3-fache Wiederholung → komplett verbieten
+        if board.is_repetition(2):
+            continue
 
-        mover = self.root_board.turn
-        self.root_board.push(mv)
+        if stop_event.is_set():
+            raise SearchAbort()
 
-        if self.root_board.can_claim_threefold_repetition():
-            current_eval = evaluate(self.root_board)
-            if current_eval > -WIN_THRESHOLD:
-                self.root_board.pop()
-                continue
+        mover = board.turn
+        board.push(move)
 
         try:
-            score = -negamax(self.root_board, depth - 1, -INF, INF, self.state, self.stop_event)
-        except SearchAbort:
-            self.root_board.pop()
-            raise
+            score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
+        finally:
+            board.pop()
 
-        self.root_board.pop()
+        if board.can_claim_threefold_repetition():
+            if score > WIN_THRESHOLD:
+                score -= DRAW_PENALTY
 
         if score > best_score:
             best_score = score
-            best_move = mv
+            best_move = move
 
         if score > alpha:
             alpha = score
-            if not self.root_board.is_capture(mv):
-                self.state.history[(mover, mv.from_square, mv.to_square)] += 2 ** depth
+            if not board.is_capture(move):
+                state.history[(mover, move.from_square, move.to_square)] += 2 ** depth
 
         if alpha >= beta:
-            self.state.history[(mover, mv.from_square, mv.to_square)] += 2 ** depth
+            state.history[(mover, move.from_square, move.to_square)] += 2 ** depth
             break
-
-    # ← Hier endet die for-Schleife, aber wir sind noch in der Funktion
 
     if best_score >= beta_orig:
         flag = 'LOWER'
@@ -427,7 +424,7 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
     else:
         flag = 'EXACT'
 
-    self.state.tt[key] = TTEntry(
+    state.tt[key] = TTEntry(
         depth=depth,
         flag=flag,
         score=best_score,
@@ -435,6 +432,7 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
     )
 
     return best_score
+
 
 # ---- SearchThread (итеративное углубление) ----
 class SearchThread(threading.Thread):
