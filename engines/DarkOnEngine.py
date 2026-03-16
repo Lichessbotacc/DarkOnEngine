@@ -402,20 +402,18 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
     finally:
         board.pop()
 
-        
+    if score > best_score:
+        best_score = score
+        best_move = move
 
-        if score > best_score:
-            best_score = score
-            best_move = move
-
-        if score > alpha:
-            alpha = score
-            if not board.is_capture(move):
-                state.history[(mover, move.from_square, move.to_square)] += 2 ** depth
-
-        if alpha >= beta:
+    if score > alpha:
+        alpha = score
+        if not board.is_capture(move):
             state.history[(mover, move.from_square, move.to_square)] += 2 ** depth
-            break
+
+    if alpha >= beta:
+        state.history[(mover, move.from_square, move.to_square)] += 2 ** depth
+        break
 
     if best_score >= beta_orig:
         flag = 'LOWER'
