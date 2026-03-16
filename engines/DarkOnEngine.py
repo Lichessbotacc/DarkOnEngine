@@ -385,34 +385,38 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
     moves.sort(key=move_key)
 
     for move in moves:
-    if stop_event.is_set():
-        raise SearchAbort()
+                # ❌ Zug erzeugt 3-fache Wiederholung → komplett verbieten
+        if board.is_repetition(2):
+            continue
 
-    mover = board.turn
-    board.push(move)
+        if stop_event.is_set():
+            raise SearchAbort()
 
-    # ❌ Wenn dieser Zug eine dreifache Wiederholung erzeugt → verbieten
-    if board.is_repetition(3):
-        board.pop()
-        continue
+        mover = board.turn
+        board.push(move)
 
-    try:
-        score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
-    finally:
-        board.pop()
+        try:
+            score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
+        finally:
+            board.pop()
 
-    if score > best_score:
-        best_score = score
-        best_move = move
+        if board.can_claim_threefold_repetition():
+            if score > WIN_THRESHOLD:
+                score -= DRAW_PENALTY
 
-    if score > alpha:
-        alpha = score
-        if not board.is_capture(move):
+        if score > best_score:
+            best_score = score
+            best_move = move
+
+        if score > alpha:
+            alpha = score
+            if not board.is_capture(move):
+                state.history[(mover, move.from_square, move.to_square)] += 2 ** depth
+
+        if alpha >= beta:
             state.history[(mover, move.from_square, move.to_square)] += 2 ** depth
+            break
 
-    if alpha >= beta:
-        state.history[(mover, move.from_square, move.to_square)] += 2 ** depth
-        break
     if best_score >= beta_orig:
         flag = 'LOWER'
     elif best_score <= alpha_orig:
