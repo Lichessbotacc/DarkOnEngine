@@ -385,7 +385,7 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
     moves.sort(key=move_key)
 
     for move in moves:                       # for-Loop korrekt
-    if stop_event.is_set():              # eingerückt → korrekt
+        if stop_event.is_set():              # eingerückt → korrekt
         raise SearchAbort()              # eingerückt unter if
     mover = board.turn                    # korrekt eingerückt innerhalb for
     board.push(move)                      # korrekt
