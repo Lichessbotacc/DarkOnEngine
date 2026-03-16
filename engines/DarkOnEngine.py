@@ -384,39 +384,35 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
 
     moves.sort(key=move_key)
 
-    for move in moves:                       # for-Loop korrekt
-        
-        if stop_event.is_set():              # eingerückt → korrekt
-            raise SearchAbort()              # eingerückt unter if
-        mover = board.turn                    # korrekt eingerückt innerhalb for
-        board.push(move)                      # korrekt
-    # Kommentar → keine Einrückung nötig, darf aber so sein
-        if board.is_repetition(3):            # korrekt eingerückt
-        board.pop()                       # korrekt eingerückt unter if
-         continue                          # korrekt eingerückt unter if
-        
-        try:
-            score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
-        finally:
-            board.pop()
+    for move in moves:
+    if stop_event.is_set():
+        raise SearchAbort()
 
-        if board.can_claim_threefold_repetition():
-            if score > WIN_THRESHOLD:
-                score -= DRAW_PENALTY
+    mover = board.turn
+    board.push(move)
 
-        if score > best_score:
-            best_score = score
-            best_move = move
+    # ❌ Wenn dieser Zug eine dreifache Wiederholung erzeugt → verbieten
+    if board.is_repetition(3):
+        board.pop()
+        continue
 
-        if score > alpha:
-            alpha = score
-            if not board.is_capture(move):
-                state.history[(mover, move.from_square, move.to_square)] += 2 ** depth
+    try:
+        score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
+    finally:
+        board.pop()
 
-        if alpha >= beta:
+    if score > best_score:
+        best_score = score
+        best_move = move
+
+    if score > alpha:
+        alpha = score
+        if not board.is_capture(move):
             state.history[(mover, move.from_square, move.to_square)] += 2 ** depth
-            break
 
+    if alpha >= beta:
+        state.history[(mover, move.from_square, move.to_square)] += 2 ** depth
+        break
     if best_score >= beta_orig:
         flag = 'LOWER'
     elif best_score <= alpha_orig:
