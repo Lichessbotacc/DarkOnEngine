@@ -386,9 +386,9 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
 
     for move in moves:                       # for-Loop korrekt
         if stop_event.is_set():              # eingerückt → korrekt
-        raise SearchAbort()              # eingerückt unter if
-    mover = board.turn                    # korrekt eingerückt innerhalb for
-    board.push(move)                      # korrekt
+            raise SearchAbort()              # eingerückt unter if
+        mover = board.turn                    # korrekt eingerückt innerhalb for
+        board.push(move)                      # korrekt
     # Kommentar → keine Einrückung nötig, darf aber so sein
     if board.is_repetition(3):            # korrekt eingerückt
         board.pop()                       # korrekt eingerückt unter if
