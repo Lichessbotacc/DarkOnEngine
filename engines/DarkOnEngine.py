@@ -525,9 +525,9 @@ class SearchThread(threading.Thread):
                         raise
                     finally:
                          self.root_board.pop()
-                                    if score > best_score_for_depth:
-                                        best_score_for_depth = score
-                                        best_for_depth = mv
+                    if score > best_score_for_depth:
+                        best_score_for_depth = score
+                        best_for_depth = mv
 
                     # тайм-чек между корневыми ходами
                     if (time.time() - self.state.start_time) > self.state.time_limit:
