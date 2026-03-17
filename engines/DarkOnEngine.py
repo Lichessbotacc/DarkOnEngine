@@ -515,7 +515,7 @@ class SearchThread(threading.Thread):
                     self.root_board.push(mv)
 
     # ❌ VERBIETE 3-FACHE WIEDERHOLUNG DIREKT
-                    if self.root_board.is_repetition(3):
+                    if self.root_board.is_repetition(2):
                         self.root_board.pop()
                         continue
 
