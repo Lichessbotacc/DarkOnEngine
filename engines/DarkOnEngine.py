@@ -510,21 +510,24 @@ class SearchThread(threading.Thread):
                 for mv in moves:
                     if self.stop_event.is_set():
                         break
-                    mover = self.root_board.turn
-                    # push once, pop once (без двойного pop даже при исключениях)
+
+    # PUSH
                     self.root_board.push(mv)
+
+    # ❌ VERBIETE 3-FACHE WIEDERHOLUNG DIREKT
+                    if self.root_board.is_repetition(3):
+                        self.root_board.pop()
+                        continue
+
                     try:
                         score = -negamax(self.root_board, depth - 1, -INF, INF, self.state, self.stop_event)
                     except SearchAbort:
-                        # просто пробрасываем, но НЕ вызываем pop здесь
                         raise
                     finally:
-                        # гарантированно снимаем ход ровно один раз
-                        self.root_board.pop()
-
-                    if score > best_score_for_depth:
-                        best_score_for_depth = score
-                        best_for_depth = mv
+                         self.root_board.pop()
+                                    if score > best_score_for_depth:
+                                        best_score_for_depth = score
+                                        best_for_depth = mv
 
                     # тайм-чек между корневыми ходами
                     if (time.time() - self.state.start_time) > self.state.time_limit:
