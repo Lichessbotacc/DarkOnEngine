@@ -410,9 +410,6 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
         finally:
             board.pop()
 
-        if board.can_claim_threefold_repetition():
-            if score > WIN_THRESHOLD:
-                score -= DRAW_PENALTY
 
         if score > best_score:
             best_score = score
