@@ -385,10 +385,20 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
     moves.sort(key=move_key)
 
     for move in moves:
-                # ❌ Zug erzeugt 3-fache Wiederholung → komplett verbieten
-        if board.is_repetition(2):
+        if stop_event.is_set():
+            raise SearchAbort()
+
+        board.push(move)
+
+    # ❌ VERBIETE Züge, die 3-fache Wiederholung erzeugen
+        if board.is_repetition(3):
+            board.pop()
             continue
 
+        try:
+            score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
+        finally:
+            board.pop()
         if stop_event.is_set():
             raise SearchAbort()
 
