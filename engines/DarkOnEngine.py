@@ -81,7 +81,7 @@ def calculate_think_time(remaining_time_ms):
     elif t >= 30:
         return rnd.uniform(0.1, 4)
     elif t >= 5:
-        return rnd.uniform(0,1, 1.5)
+        return rnd.uniform(0.1, 1.5)
     else:
         return 0.05   # niemals 0!
 
