@@ -77,14 +77,13 @@ def calculate_think_time(remaining_time_ms):
     elif t >= 180:     # 3 minutes
         return rnd.uniform(4, 10)
     elif t >= 60:      # 1 minute
-        return rnd.uniform(3, 8)
+        return rnd.uniform(2, 5)
     elif t >= 30:
-        return rnd.uniform(0, 4)
+        return rnd.uniform(0.1, 4)
     elif t >= 5:
-        return rnd.uniform(0, 2)
+        return rnd.uniform(0.1, 1.5)
     else:
-        return 0.00    # panic
-
+        return 0.05   # niemals 0!
 
 def fast_board_key(board: chess.Board):
     return (board.board_fen(), board.turn, board.castling_xfen(), board.ep_square, board.halfmove_clock)
