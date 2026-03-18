@@ -384,7 +384,7 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
         hist = -state.history[(board.turn, mv.from_square, mv.to_square)]
         return (cap, mvv, hist)
 
-    moves.sort(key=move_key)
+    moves.sort(key=lambda mv: (move_key(mv), rnd.random()*0.001))
 
     for move in moves:
                 # ❌ Zug erzeugt 3-fache Wiederholung → komplett verbieten
