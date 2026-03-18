@@ -176,8 +176,6 @@ def evaluate(board: chess.Board):
     elif bk == chess.C8 and not board.has_queenside_castling_rights(chess.BLACK):
         score -= CASTLING_BONUS
 
-    # ========= SIDE TO MOVE =========
-    return score if board.turn == chess.WHITE else -score
 
 
     # ========= BISHOP PAIR =========
@@ -387,28 +385,18 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
         if stop_event.is_set():
             raise SearchAbort()
 
-        board.push(move)
+    mover = board.turn
+    board.push(move)
 
-    # ❌ VERBIETE Züge, die 3-fache Wiederholung erzeugen
-        if board.is_repetition(3):
-            board.pop()
-            continue
+    # ❌ NICHT komplett verbieten!
+    if board.is_repetition(3):
+        board.pop()
+        continue
 
-        try:
-            score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
-        finally:
-            board.pop()
-        if stop_event.is_set():
-            raise SearchAbort()
-
-        mover = board.turn
-        board.push(move)
-
-        try:
-            score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
-        finally:
-            board.pop()
-
+    try:
+        score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
+    finally:
+        board.pop()
 
         if score > best_score:
             best_score = score
