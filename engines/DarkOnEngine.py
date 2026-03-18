@@ -406,8 +406,11 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
         mover = board.turn
         board.push(move)
 
+        if board.can_claim_threefold_repetition():
+            board.pop()
+            continue
         # 🔁 nach dem Zug prüfen
-        is_repetition = board.is_repetition(2)
+        is_repetition = board.can_claim_threefold_repetition()
 
         # BLUNDER CHECK
         if board.is_attacked_by(not board.turn, move.to_square):
