@@ -62,7 +62,7 @@ TTEntry = namedtuple("TTEntry", ["depth", "flag", "score", "best_move"])
 # flag: 'EXACT', 'LOWER', 'UPPER'
 
 def calculate_think_time(remaining_time_ms):
-    return max(0.2, remaining_time_ms / 20000)
+    t = remaining_time_ms / 1000  # seconds
 
     if t >= 1800:      # 30 minutes
         return rnd.uniform(20, 120)
@@ -79,7 +79,7 @@ def calculate_think_time(remaining_time_ms):
     elif t >= 60:      # 1 minute
         return rnd.uniform(2, 5)
     elif t >= 30:
-        return rnd.uniform(0.1, 3)
+        return rnd.uniform(0.1, 4)
     elif t >= 5:
         return rnd.uniform(0.1, 1.5)
     else:
@@ -176,6 +176,8 @@ def evaluate(board: chess.Board):
     elif bk == chess.C8 and not board.has_queenside_castling_rights(chess.BLACK):
         score -= CASTLING_BONUS
 
+    # ========= SIDE TO MOVE =========
+    return score if board.turn == chess.WHITE else -score
 
 
     # ========= BISHOP PAIR =========
@@ -237,7 +239,7 @@ def evaluate(board: chess.Board):
             score -= ROOK_7TH
 
     # ========= KNIGHT OUTPOST =========
-    KNIGHT_OUTPOST = 20
+    KNIGHT_OUTPOST = 25
 
     def knight_outpost(sq, color):
         rank = chess.square_rank(sq)
@@ -317,7 +319,7 @@ def quiescence(board: chess.Board, alpha: int, beta: int, state: SearchState, st
     if alpha < stand_pat:
         alpha = stand_pat
 
-    captures = [m for m in board.legal_moves if board.is_capture(m) or board.gives_check(m)]
+    captures = [m for m in board.legal_moves if board.is_capture(m)]
     if not captures:
         return alpha
     captures.sort(key=lambda mv: -mvv_lva_score(board, mv))
@@ -349,11 +351,8 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
     state.nodes += 1
 
     if depth == 0:
-        if board.is_check():
-            depth = 1
-        else:
-            return quiescence(board, alpha, beta, state, stop_event)
-    
+        return quiescence(board, alpha, beta, state, stop_event)
+
     key = fast_board_key(board)
     tt_entry = state.tt.get(key)
     if tt_entry and tt_entry.depth >= depth:
@@ -388,9 +387,9 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
         if stop_event.is_set():
             raise SearchAbort()
 
-        mover = board.turn
         board.push(move)
 
+    # ❌ VERBIETE Züge, die 3-fache Wiederholung erzeugen
         if board.is_repetition(3):
             board.pop()
             continue
@@ -399,6 +398,17 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
             score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
         finally:
             board.pop()
+        if stop_event.is_set():
+            raise SearchAbort()
+
+        mover = board.turn
+        board.push(move)
+
+        try:
+            score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
+        finally:
+            board.pop()
+
 
         if score > best_score:
             best_score = score
@@ -473,7 +483,7 @@ class SearchThread(threading.Thread):
         self.state.time_limit = ms / 1000.0
         self.state.start_time = time.time()
 
-        depth = 2
+        depth = 1
         try:
             while not self.stop_event.is_set():
                 if self.max_depth and depth > self.max_depth:
