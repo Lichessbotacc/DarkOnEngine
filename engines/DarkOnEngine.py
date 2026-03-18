@@ -25,14 +25,14 @@ PIECE_VALUES = {
 PST = {
 
     chess.PAWN: [
-        0,  0,  0,  0,  0,  0,  0,  0,      # 8. Reihe (weiß hinten) – sicher, neutral
-        5,  5,  5,  5,  5,  5,  5,  5,      # 7. Reihe – leicht belohnt, ruhig stehen
-        10, 10, 15, 20, 20, 15, 10, 10,    # 6. Reihe – Zentrum + Fortschritt
-        20, 20, 25, 30, 30, 25, 20, 20,    # 5. Reihe – stärker ins Zentrum
-        30, 30, 35, 40, 40, 35, 30, 30,    # 4. Reihe – sehr stark vorgerückt
-        50, 50, 50, 50, 50, 50, 50, 50,    # 3. Reihe – sicher + zentral
-        70, 70, 70, 70, 70, 70, 70, 70,    # 2. Reihe – Ziel für vordringen (vorletzte)
-        0,  0,  0,  0,  0,  0,  0,  0       # 1. Reihe – nur Start oder Block (für schwarz gespiegelt)
+         0,  0,  0,  0,  0,  0,  0,  0,
+         5, 10, 10,-20,-20, 10, 10,  5,
+         5, -5,-10,  0,  0,-10, -5,  5,
+         0,  0,  0, 20, 20,  0,  0,  0,
+         5,  5, 10, 25, 25, 10,  5,  5,
+        10, 10, 20, 30, 30, 20, 10, 10,
+        50, 50, 50, 50, 50, 50, 50, 50,
+         0,  0,  0,  0,  0,  0,  0,  0
     ],
 
     chess.KNIGHT: [
