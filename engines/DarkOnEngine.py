@@ -150,17 +150,30 @@ def evaluate(board: chess.Board):
 
     score += material
 
+    
     # ========= GAME PHASE =========
-    endgame = material < 2400
+    num_queens = len(board.pieces(chess.QUEEN, chess.WHITE)) + len(board.pieces(chess.QUEEN, chess.BLACK))
+    num_rooks  = len(board.pieces(chess.ROOK, chess.WHITE)) + len(board.pieces(chess.ROOK, chess.BLACK))
+    # Endspiel, wenn Material niedrig ODER nur noch wenige Damen/Türme auf dem Brett
+    endgame = material < 2400 or (num_queens + num_rooks <= 2)
 
     wk = board.king(chess.WHITE)
     bk = board.king(chess.BLACK)
 
     # ========= KING =========
+    # ========= KING =========
     if endgame:
+    # Belohne König für Zentrum im Endspiel
+        central_squares = [chess.D4, chess.D5, chess.E4, chess.E5]
+        if wk in central_squares:
+            score += 50
+        if bk in central_squares:
+            score -= 50
+
         score -= KING_ENDGAME_PST[wk]
         score += KING_ENDGAME_PST[chess.square_mirror(bk)]
     else:
+    # Mittelspiel-König nur für Rochade leicht bewerten
         if wk == chess.E1:
             score -= 20
         if bk == chess.E8:
