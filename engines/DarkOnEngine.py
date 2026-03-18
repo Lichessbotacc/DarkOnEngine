@@ -83,7 +83,7 @@ def calculate_think_time(remaining_time_ms):
     elif t >= 5:
         return rnd.uniform(0, 2)
     else:
-        return 0.00    # panic
+        return 0.1    # panic
 
 
 def fast_board_key(board: chess.Board):
@@ -558,15 +558,24 @@ class SearchThread(threading.Thread):
             except Exception:
                 print("bestmove 0000")
                 sys.stdout.flush()
-        else:
-            # если ничего не найдено, попробуем любой легальный ход
-            try:
-                fb = next(iter(self.root_board.legal_moves))
-                print(f"bestmove {fb.uci()}")
-                sys.stdout.flush()
-            except StopIteration:
-                print("bestmove 0000")
-                sys.stdout.flush()
+            
+    else:
+        try:
+            moves = list(self.root_board.legal_moves)
+
+            captures = [m for m in moves if self.root_board.is_capture(m)]
+
+            if captures:
+                best = max(captures, key=lambda m: mvv_lva_score(self.root_board, m))
+            else:
+                best = moves[0]
+
+            print(f"bestmove {best.uci()}")
+            sys.stdout.flush()
+
+        except Exception:
+            print("bestmove 0000")
+            sys.stdout.flush()
 
 # ---- UCI loop ----
 
