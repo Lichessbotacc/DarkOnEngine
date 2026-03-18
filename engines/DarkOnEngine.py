@@ -272,11 +272,31 @@ def evaluate(board: chess.Board):
             score -= KNIGHT_OUTPOST
 
     # ========= SIMPLIFY WHEN WINNING =========
-    # ==== KLARE VORTEILE STÄRKEN ====
-    if material > 500:  # deutlicher Vorteil für Weiß
-        score += material // 4
-    elif material < -500:  # deutlicher Vorteil für Schwarz
-        score -= abs(material) // 4
+   # ======= ENDGAME BOOSTS =======
+# Belohne offene Linien, Rook auf 7./2. Reihe, King zentral
+    for sq in board.pieces(chess.ROOK, chess.WHITE):
+        rank = chess.square_rank(sq)
+        file = chess.square_file(sq)
+    # offene Linie
+        if not any(board.piece_at(chess.square(file, r)) for r in range(8) if r != rank):
+            score += 30
+    # 7. Reihe
+        if rank == 6:
+            score += 40
+
+    for sq in board.pieces(chess.ROOK, chess.BLACK):
+        rank = chess.square_rank(sq)
+        file = chess.square_file(sq)
+        if not any(board.piece_at(chess.square(file, r)) for r in range(8) if r != rank):
+            score -= 30
+        if rank == 1:
+            score -= 40
+
+# King Aktivität
+    wk = board.king(chess.WHITE)
+    bk = board.king(chess.BLACK)
+    score += 10 * (4 - abs(chess.square_file(wk)-4) + 4 - abs(chess.square_rank(wk)-4))  # zentrale Felder
+    score -= 10 * (4 - abs(chess.square_file(bk)-4) + 4 - abs(chess.square_rank(bk)-4))
     # ========= SIDE TO MOVE =========
     return score if board.turn == chess.WHITE else -score
 
