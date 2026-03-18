@@ -77,13 +77,14 @@ def calculate_think_time(remaining_time_ms):
     elif t >= 180:     # 3 minutes
         return rnd.uniform(4, 10)
     elif t >= 60:      # 1 minute
-        return rnd.uniform(2, 4)
+        return rnd.uniform(3, 8)
     elif t >= 30:
-        return rnd.uniform(1, 2)
-    elif t >= 10:
-        return rnd.uniform(0.5, 1)
+        return rnd.uniform(0, 4)
+    elif t >= 5:
+        return rnd.uniform(0, 2)
     else:
-        return 0.25  # niemals 0!
+        return 0.00    # panic
+
 
 def fast_board_key(board: chess.Board):
     return (board.board_fen(), board.turn, board.castling_xfen(), board.ep_square, board.halfmove_clock)
@@ -272,31 +273,18 @@ def evaluate(board: chess.Board):
             score -= KNIGHT_OUTPOST
 
     # ========= SIMPLIFY WHEN WINNING =========
-   # ======= ENDGAME BOOSTS =======
-# Belohne offene Linien, Rook auf 7./2. Reihe, King zentral
-    for sq in board.pieces(chess.ROOK, chess.WHITE):
-        rank = chess.square_rank(sq)
-        file = chess.square_file(sq)
-    # offene Linie
-        if not any(board.piece_at(chess.square(file, r)) for r in range(8) if r != rank):
-            score += 30
-    # 7. Reihe
-        if rank == 6:
-            score += 40
+    if material > 200:
+        score += 5 * (
+            len(board.pieces(chess.QUEEN, chess.BLACK)) +
+            len(board.pieces(chess.ROOK, chess.BLACK))
+        )
 
-    for sq in board.pieces(chess.ROOK, chess.BLACK):
-        rank = chess.square_rank(sq)
-        file = chess.square_file(sq)
-        if not any(board.piece_at(chess.square(file, r)) for r in range(8) if r != rank):
-            score -= 30
-        if rank == 1:
-            score -= 40
+    if material < -200:
+        score -= 5 * (
+            len(board.pieces(chess.QUEEN, chess.WHITE)) +
+            len(board.pieces(chess.ROOK, chess.WHITE))
+        )
 
-# King Aktivität
-    wk = board.king(chess.WHITE)
-    bk = board.king(chess.BLACK)
-    score += 10 * (4 - abs(chess.square_file(wk)-4) + 4 - abs(chess.square_rank(wk)-4))  # zentrale Felder
-    score -= 10 * (4 - abs(chess.square_file(bk)-4) + 4 - abs(chess.square_rank(bk)-4))
     # ========= SIDE TO MOVE =========
     return score if board.turn == chess.WHITE else -score
 
@@ -397,20 +385,10 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
     moves.sort(key=move_key)
 
     for move in moves:
-        if stop_event.is_set():
-            raise SearchAbort()
-
-        board.push(move)
-
-    # ❌ VERBIETE Züge, die 3-fache Wiederholung erzeugen
-        if board.is_repetition(3):
-            board.pop()
+                # ❌ Zug erzeugt 3-fache Wiederholung → komplett verbieten
+        if board.is_repetition(2):
             continue
 
-        try:
-            score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
-        finally:
-            board.pop()
         if stop_event.is_set():
             raise SearchAbort()
 
@@ -422,6 +400,9 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
         finally:
             board.pop()
 
+        if board.can_claim_threefold_repetition():
+            if score > WIN_THRESHOLD:
+                score -= DRAW_PENALTY
 
         if score > best_score:
             best_score = score
@@ -523,21 +504,18 @@ class SearchThread(threading.Thread):
                 for mv in moves:
                     if self.stop_event.is_set():
                         break
-
-    # PUSH
+                    mover = self.root_board.turn
+                    # push once, pop once (без двойного pop даже при исключениях)
                     self.root_board.push(mv)
-
-    # ❌ VERBIETE 3-FACHE WIEDERHOLUNG DIREKT
-                    if self.root_board.is_repetition(2):
-                        self.root_board.pop()
-                        continue
-
                     try:
                         score = -negamax(self.root_board, depth - 1, -INF, INF, self.state, self.stop_event)
                     except SearchAbort:
+                        # просто пробрасываем, но НЕ вызываем pop здесь
                         raise
                     finally:
-                         self.root_board.pop()
+                        # гарантированно снимаем ход ровно один раз
+                        self.root_board.pop()
+
                     if score > best_score_for_depth:
                         best_score_for_depth = score
                         best_for_depth = mv
