@@ -272,18 +272,11 @@ def evaluate(board: chess.Board):
             score -= KNIGHT_OUTPOST
 
     # ========= SIMPLIFY WHEN WINNING =========
-    if material > 200:
-        score += 5 * (
-            len(board.pieces(chess.QUEEN, chess.BLACK)) +
-            len(board.pieces(chess.ROOK, chess.BLACK))
-        )
-
-    if material < -200:
-        score -= 5 * (
-            len(board.pieces(chess.QUEEN, chess.WHITE)) +
-            len(board.pieces(chess.ROOK, chess.WHITE))
-        )
-
+    # ==== KLARE VORTEILE STÄRKEN ====
+    if material > 500:  # deutlicher Vorteil für Weiß
+        score += material // 4
+    elif material < -500:  # deutlicher Vorteil für Schwarz
+        score -= abs(material) // 4
     # ========= SIDE TO MOVE =========
     return score if board.turn == chess.WHITE else -score
 
