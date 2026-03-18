@@ -559,23 +559,23 @@ class SearchThread(threading.Thread):
                 print("bestmove 0000")
                 sys.stdout.flush()
             
-    else:
-        try:
-            moves = list(self.root_board.legal_moves)
+        else:
+            try:
+                moves = list(self.root_board.legal_moves)
 
-            captures = [m for m in moves if self.root_board.is_capture(m)]
+                captures = [m for m in moves if self.root_board.is_capture(m)]
 
-            if captures:
-                best = max(captures, key=lambda m: mvv_lva_score(self.root_board, m))
-            else:
-                best = moves[0]
+                if captures:
+                    best = max(captures, key=lambda m: mvv_lva_score(self.root_board, m))
+                else:
+                    best = moves[0]
 
-            print(f"bestmove {best.uci()}")
-            sys.stdout.flush()
+                print(f"bestmove {best.uci()}")
+                sys.stdout.flush()
 
-        except Exception:
-            print("bestmove 0000")
-            sys.stdout.flush()
+            except Exception:
+                print("bestmove 0000")
+                sys.stdout.flush()
 
 # ---- UCI loop ----
 
