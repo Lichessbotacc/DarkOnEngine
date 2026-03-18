@@ -400,38 +400,30 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
     moves.sort(key=lambda mv: (move_key(mv), rnd.random()*0.001))
 
     for move in moves:
-                # ❌ Zug erzeugt 3-fache Wiederholung → komplett verbieten
-        board.push(move)
-
-        is_repetition = board.is_repetition(2)
-
-        try:
-            score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
-        finally:
-            board.pop()
-
-# ❗ Wiederholung bestrafen, wenn wir gewinnen
-        if is_repetition and score > WIN_THRESHOLD:
-            score -= DRAW_PENALTY
         if stop_event.is_set():
             raise SearchAbort()
 
         mover = board.turn
         board.push(move)
-# BLUNDER CHECK
+
+        # 🔁 nach dem Zug prüfen
+        is_repetition = board.is_repetition(2)
+
+        # BLUNDER CHECK
         if board.is_attacked_by(not board.turn, move.to_square):
             piece = board.piece_at(move.to_square)
             if piece and piece.piece_type == chess.QUEEN:
                 board.pop()
                 continue
+
         try:
             score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
         finally:
             board.pop()
 
-        if board.can_claim_threefold_repetition():
-            if score > WIN_THRESHOLD:
-                score -= DRAW_PENALTY
+        # ❗ Wiederholung bestrafen
+        if is_repetition and score > WIN_THRESHOLD:
+            score -= DRAW_PENALTY
 
         if score > best_score:
             best_score = score
