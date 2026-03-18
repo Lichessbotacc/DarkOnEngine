@@ -9,7 +9,7 @@ from collections import defaultdict, namedtuple
 import random as rnd
 
 INF = 99999999
-DRAW_PENALTY = 10000      # штраф за повтор
+DRAW_PENALTY = 50000      # штраф за повтор
 WIN_THRESHOLD = 200    # считаем позицию выигранной (cp)
 
 
@@ -422,7 +422,7 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
             board.pop()
 
         # ❗ Wiederholung bestrafen
-        if is_repetition and score > WIN_THRESHOLD:
+        if is_repetition:
             score -= DRAW_PENALTY
 
         if score > best_score:
