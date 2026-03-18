@@ -115,8 +115,10 @@ def mvv_lva_score(board, move):
 
 def evaluate(board: chess.Board):
     # ========= TERMINAL =========
+    MATE_SCORE = 100000
+
     if board.is_checkmate():
-        return -INF + 1
+        return -MATE_SCORE
     if board.is_stalemate() or board.is_insufficient_material():
         return 0
 
