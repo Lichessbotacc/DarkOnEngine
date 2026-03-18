@@ -79,7 +79,7 @@ def calculate_think_time(remaining_time_ms):
     elif t >= 60:      # 1 minute
         return rnd.uniform(2, 5)
     elif t >= 30:
-        return rnd.uniform(0.1, 4)
+        return rnd.uniform(0.1, 3)
     elif t >= 5:
         return rnd.uniform(0.1, 1.5)
     else:
@@ -239,7 +239,7 @@ def evaluate(board: chess.Board):
             score -= ROOK_7TH
 
     # ========= KNIGHT OUTPOST =========
-    KNIGHT_OUTPOST = 25
+    KNIGHT_OUTPOST = 20
 
     def knight_outpost(sq, color):
         rank = chess.square_rank(sq)
@@ -483,7 +483,7 @@ class SearchThread(threading.Thread):
         self.state.time_limit = ms / 1000.0
         self.state.start_time = time.time()
 
-        depth = 1
+        depth = 2
         try:
             while not self.stop_event.is_set():
                 if self.max_depth and depth > self.max_depth:
