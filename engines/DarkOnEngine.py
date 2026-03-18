@@ -396,7 +396,12 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
 
         mover = board.turn
         board.push(move)
-
+# BLUNDER CHECK
+        if board.is_attacked_by(not board.turn, move.to_square):
+            piece = board.piece_at(move.to_square)
+            if piece and piece.piece_type == chess.QUEEN:
+                board.pop()
+                continue
         try:
             score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
         finally:
