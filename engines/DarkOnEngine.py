@@ -62,7 +62,7 @@ TTEntry = namedtuple("TTEntry", ["depth", "flag", "score", "best_move"])
 # flag: 'EXACT', 'LOWER', 'UPPER'
 
 def calculate_think_time(remaining_time_ms):
-    t = remaining_time_ms / 1000  # seconds
+    t = remaining_time_ms / 30000  # seconds
 
     if t >= 1800:      # 30 minutes
         return rnd.uniform(20, 120)
@@ -317,7 +317,7 @@ def quiescence(board: chess.Board, alpha: int, beta: int, state: SearchState, st
     if alpha < stand_pat:
         alpha = stand_pat
 
-    captures = [m for m in board.legal_moves if board.is_capture(m)]
+    captures = [m for m in board.legal_moves if board.is_capture(m) or board.gives_check(m)]
     if not captures:
         return alpha
     captures.sort(key=lambda mv: -mvv_lva_score(board, mv))
@@ -349,8 +349,11 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
     state.nodes += 1
 
     if depth == 0:
-        return quiescence(board, alpha, beta, state, stop_event)
-
+        if board.is_check():
+            depth = 1
+        else:
+            return quiescence(board, alpha, beta, state, stop_event)
+    
     key = fast_board_key(board)
     tt_entry = state.tt.get(key)
     if tt_entry and tt_entry.depth >= depth:
