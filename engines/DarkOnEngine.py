@@ -178,7 +178,7 @@ def evaluate(board: chess.Board):
         score -= CASTLING_BONUS
 
     # ========= SIDE TO MOVE =========
-    return score if board.turn == chess.WHITE else -score
+   
 
 
     # ========= BISHOP PAIR =========
