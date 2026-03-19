@@ -517,33 +517,8 @@ class SearchThread(threading.Thread):
                 self.depth_reached = depth
 
                
-        # 🚨 ANTI-MATE-IN-1 (SEHR WICHTIG)
-        # 🚨 ANTI-MATE-IN-1 (SEHR WICHTIG)
-        safe_moves = []
-
-        for mv in self.root_board.legal_moves:
-            self.root_board.push(mv)
-
-            opponent_mates = False
-            for opp_mv in self.root_board.legal_moves:
-                self.root_board.push(opp_mv)
-                if self.root_board.is_checkmate():
-                    opponent_mates = True
-                self.root_board.pop()
-
-                if opponent_mates:
-                    break
-
-            self.root_board.pop()
-
-            if not opponent_mates:
-                safe_moves.append(mv)
-
-        # Wenn sichere Züge existieren → nur diese benutzen
-        if safe_moves:
-            moves = safe_moves
-        else:
-            moves = list(self.root_board.legal_moves)
+       
+                moves = list(self.root_board.legal_moves)
                 root_key = fast_board_key(self.root_board)
                 root_tt = self.state.tt.get(root_key)
 
