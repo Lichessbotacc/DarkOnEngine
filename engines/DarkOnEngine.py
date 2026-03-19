@@ -527,7 +527,7 @@ class SearchThread(threading.Thread):
                     self.root_board.push(opp_mv)
                     if self.root_board.is_checkmate():
                         opponent_mates = True
-                  self.root_board.pop()
+                    self.root_board.pop()
 
                     if opponent_mates:
                         break
