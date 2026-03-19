@@ -155,7 +155,10 @@ def evaluate(board: chess.Board):
     num_queens = len(board.pieces(chess.QUEEN, chess.WHITE)) + len(board.pieces(chess.QUEEN, chess.BLACK))
     num_rooks  = len(board.pieces(chess.ROOK, chess.WHITE)) + len(board.pieces(chess.ROOK, chess.BLACK))
     # Endspiel, wenn Material niedrig ODER nur noch wenige Damen/Türme auf dem Brett
-    endgame = material < 2400 or (num_queens + num_rooks <= 2)
+    white_material = sum(PIECE_VALUES[p.piece_type] for p in board.piece_map().values() if p.color == chess.WHITE)
+    black_material = sum(PIECE_VALUES[p.piece_type] for p in board.piece_map().values() if p.color == chess.BLACK)
+    total_material = white_material + black_material
+    endgame = total_material < 2600 or (num_queens + num_rooks <= 2)
 
     wk = board.king(chess.WHITE)
     bk = board.king(chess.BLACK)
@@ -170,8 +173,15 @@ def evaluate(board: chess.Board):
         if bk in central_squares:
             score -= 100
 
-        score -= KING_ENDGAME_PST[wk]
-        score += KING_ENDGAME_PST[chess.square_mirror(bk)]
+        score += KING_ENDGAME_PST[wk]
+        score -= KING_ENDGAME_PST[chess.square_mirror(bk)]
+        KING_ACTIVITY_BONUS = 10
+# Belohne jeden Schritt in Richtung Zentrum
+        wk_file, wk_rank = chess.square_file(wk), chess.square_rank(wk)
+        bk_file, bk_rank = chess.square_file(bk), chess.square_rank(bk)
+
+        score += KING_ACTIVITY_BONUS * (3 - abs(3.5 - wk_file)) + KING_ACTIVITY_BONUS * (3 - abs(3.5 - wk_rank))
+        score -= KING_ACTIVITY_BONUS * (3 - abs(3.5 - bk_file)) + KING_ACTIVITY_BONUS * (3 - abs(3.5 - bk_rank))
     else:
     # Mittelspiel-König nur für Rochade leicht bewerten
         if wk == chess.E1:
