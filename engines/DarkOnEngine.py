@@ -537,6 +537,10 @@ class SearchThread(threading.Thread):
                     mover = self.root_board.turn
                     # push once, pop once (без двойного pop даже при исключениях)
                     self.root_board.push(mv)
+                        # ❌ Wiederholung auf Root verhindern (SEHR WICHTIG)
+                    if self.root_board.can_claim_threefold_repetition():
+                        self.root_board.pop()
+                        continue
                     try:
                         score = -negamax(self.root_board, depth - 1, -INF, INF, self.state, self.stop_event)
                     except SearchAbort:
