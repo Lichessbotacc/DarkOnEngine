@@ -516,8 +516,7 @@ class SearchThread(threading.Thread):
                     break
                 self.depth_reached = depth
 
-               
-       
+                # корневое упорядочивание
                 moves = list(self.root_board.legal_moves)
                 root_key = fast_board_key(self.root_board)
                 root_tt = self.state.tt.get(root_key)
