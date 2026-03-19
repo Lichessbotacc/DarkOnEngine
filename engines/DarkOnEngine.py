@@ -166,9 +166,9 @@ def evaluate(board: chess.Board):
     # Belohne König für Zentrum im Endspiel
         central_squares = [chess.D4, chess.D5, chess.E4, chess.E5]
         if wk in central_squares:
-            score += 50
+            score += 100
         if bk in central_squares:
-            score -= 50
+            score -= 100
 
         score -= KING_ENDGAME_PST[wk]
         score += KING_ENDGAME_PST[chess.square_mirror(bk)]
@@ -255,7 +255,7 @@ def evaluate(board: chess.Board):
             score -= ROOK_7TH
 
     # ========= KNIGHT OUTPOST =========
-    KNIGHT_OUTPOST = 25
+    KNIGHT_OUTPOST = 20
 
     def knight_outpost(sq, color):
         rank = chess.square_rank(sq)
@@ -486,6 +486,32 @@ class SearchThread(threading.Thread):
         self.state = SearchState()
         self.state.time_limit = 0.0
         self.state.start_time = 0.0
+
+        # 🚨 ANTI-MATE-IN-1
+        safe_moves = []
+
+        for mv in self.root_board.legal_moves:
+            self.root_board.push(mv)  # eigenen Zug ausführen
+
+            opponent_mates = False
+            for opp_mv in self.root_board.legal_moves:  # alle gegnerischen Züge
+                self.root_board.push(opp_mv)
+                if self.root_board.is_checkmate():
+                    opponent_mates = True  # Gegner kann Matt in 1
+                self.root_board.pop()
+                if opponent_mates:
+                    break
+
+            self.root_board.pop()  # eigenen Zug wieder zurücknehmen
+
+            if not opponent_mates:
+                safe_moves.append(mv)
+
+# Wenn es sichere Züge gibt → nur diese benutzen
+        if safe_moves:
+            moves = safe_moves
+        else:
+            moves = list(self.root_board.legal_moves)
 
     def time_remaining_ms(self):
         if self.movetime:
