@@ -115,7 +115,7 @@ def mvv_lva_score(board, move):
 
 def evaluate(board: chess.Board):
     # ========= TERMINAL =========
-    MATE_SCORE = 100000
+    MATE_SCORE = 10000000
 
     if board.is_checkmate():
         return -MATE_SCORE
@@ -397,11 +397,13 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
     def move_key(mv):
         if tt_entry and tt_entry.best_move and mv == tt_entry.best_move:
             return (0, 0, 0)
+
+        is_check = board.gives_check(mv)
         cap = 0 if board.is_capture(mv) else 1
         mvv = -mvv_lva_score(board, mv)
         hist = -state.history[(board.turn, mv.from_square, mv.to_square)]
-        return (cap, mvv, hist)
 
+        return (cap, -is_check, mvv, hist)
     moves.sort(key=lambda mv: (move_key(mv), rnd.random()*0.001))
 
     for move in moves:
@@ -414,6 +416,9 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
                 continue
         mover = board.turn
         board.push(move)
+        if board.is_checkmate():
+            board.pop()
+            return 100000 - depth  # schnelleres Matt = besser
         # 🔥 Winning Mode aktiv?
         winning = evaluate(board) > WIN_THRESHOLD
 
