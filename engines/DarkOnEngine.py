@@ -316,6 +316,7 @@ class SearchState:
         self.start_time = 0.0
         self.time_limit = 0.0
         self.history = defaultdict(int)
+        self.last_move = None
 
 class SearchAbort(Exception):
     pass
@@ -402,7 +403,11 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
     for move in moves:
         if stop_event.is_set():
             raise SearchAbort()
-
+  
+    # ❌ Anti-Shuffle (verhindert hin-und-her)
+        if state.last_move:
+            if move.from_square == state.last_move.to_square and move.to_square == state.last_move.from_square:
+                continue
         mover = board.turn
         board.push(move)
 
@@ -431,6 +436,7 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
         if score > best_score:
             best_score = score
             best_move = move
+            state.last_move = move
 
         if score > alpha:
             alpha = score
