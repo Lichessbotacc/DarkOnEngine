@@ -182,15 +182,9 @@ def evaluate(board: chess.Board):
 
         score += KING_ACTIVITY_BONUS * (3 - abs(3.5 - wk_file)) + KING_ACTIVITY_BONUS * (3 - abs(3.5 - wk_rank))
         score -= KING_ACTIVITY_BONUS * (3 - abs(3.5 - bk_file)) + KING_ACTIVITY_BONUS * (3 - abs(3.5 - bk_rank))
-    else:
-    # Mittelspiel-König nur für Rochade leicht bewerten
-        if wk == chess.E1:
-            score -= 20
-        if bk == chess.E8:
-            score += 20
-
+    
     # ========= CASTLING BONUS =========
-    CASTLING_BONUS = 80
+    CASTLING_BONUS = 100
 
     if wk == chess.G1 and not board.has_kingside_castling_rights(chess.WHITE):
         score += CASTLING_BONUS
