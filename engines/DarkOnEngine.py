@@ -414,6 +414,19 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
                 continue
         mover = board.turn
         board.push(move)
+        # 🚨 Verhindere Mate in 1 vom Gegner
+        mate_in_1 = False
+        for opp_mv in board.legal_moves:
+            board.push(opp_mv)
+            if board.is_checkmate():
+                mate_in_1 = True
+            board.pop()
+            if mate_in_1:
+                break
+
+        if mate_in_1:
+            board.pop()
+            continue
         # 🔥 Winning Mode aktiv?
         winning = evaluate(board) > WIN_THRESHOLD
 
