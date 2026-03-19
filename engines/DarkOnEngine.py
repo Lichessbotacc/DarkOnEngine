@@ -10,7 +10,7 @@ import random as rnd
 
 INF = 99999999
 DRAW_PENALTY = 50000      # штраф за повтор
-WIN_THRESHOLD = 200    # считаем позицию выигранной (cp)
+WIN_THRESHOLD = 150    # считаем позицию выигранной (cp)
 
 
 PIECE_VALUES = {
@@ -410,6 +410,8 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
                 continue
         mover = board.turn
         board.push(move)
+        # 🔥 Winning Mode aktiv?
+        winning = evaluate(board) > WIN_THRESHOLD
 
         if board.can_claim_threefold_repetition():
             board.pop()
