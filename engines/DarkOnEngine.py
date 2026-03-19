@@ -370,6 +370,11 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
         raise SearchAbort()
 
     state.nodes += 1
+    if board.is_check():
+        depth += 1
+    # 🔥 Terminal Checkmate
+    if board.is_checkmate():
+        return -100000 + depth
 
     if depth == 0:
         return quiescence(board, alpha, beta, state, stop_event)
@@ -436,13 +441,7 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
         # 🔁 nach dem Zug prüfen
         is_repetition = board.can_claim_threefold_repetition()
 
-        # BLUNDER CHECK
-        if board.is_attacked_by(not board.turn, move.to_square):
-            piece = board.piece_at(move.to_square)
-            if piece and piece.piece_type == chess.QUEEN:
-                board.pop()
-                continue
-
+       
         try:
             score = -negamax(board, depth - 1, -beta, -alpha, state, stop_event)
         finally:
