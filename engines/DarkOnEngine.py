@@ -372,7 +372,11 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
     state.nodes += 1
 
     if depth == 0:
-        return quiescence(board, alpha, beta, state, stop_event)
+        # 🔥 wenn Schach → tiefer suchen!
+        if board.is_check():
+            depth = 2
+        else:
+            return quiescence(board, alpha, beta, state, stop_event)
 
     key = fast_board_key(board)
     tt_entry = state.tt.get(key)
@@ -416,9 +420,16 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
                 continue
         mover = board.turn
         board.push(move)
+
+        # ✅ ERST prüfen: Habe ich Matt gesetzt?
         if board.is_checkmate():
             board.pop()
-            return 100000 - depth  # schnelleres Matt = besser
+            return 1000000 - depth
+
+        # 🚨 DANN: Verhindere gegnerisches Matt
+        if allows_mate_in_one(board):
+            board.pop()
+            continue
         # 🔥 Winning Mode aktiv?
         winning = evaluate(board) > WIN_THRESHOLD
 
