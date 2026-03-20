@@ -517,9 +517,6 @@ class SearchThread(threading.Thread):
                 safe_moves.append(mv)
 
 # Wenn es sichere Züge gibt → nur diese benutzen
-        if safe_moves:
-            moves = safe_moves
-        else:
         if self.safe_moves is not None:
             moves = self.safe_moves
         else:
