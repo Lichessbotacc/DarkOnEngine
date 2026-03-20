@@ -514,6 +514,9 @@ class SearchThread(threading.Thread):
                 if opponent_mates:
                     break
 
+            if self.root_board.is_stalemate():
+                opponent_mates_or_patt = True
+
             self.root_board.pop()  # eigenen Zug wieder zurücknehmen
 
             if not opponent_mates:
