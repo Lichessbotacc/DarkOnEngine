@@ -83,7 +83,7 @@ def calculate_think_time(remaining_time_ms):
     elif t >= 5:
         return rnd.uniform(0.1, 1.5)
     else:
-        return 0.0   # panic
+        return 0.1   # panischer modus
 
 
 def fast_board_key(board: chess.Board):
@@ -419,6 +419,9 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
         if board.is_checkmate():
             board.pop()
             return 100000 - depth  # schnelleres Matt = besser
+        if board.is_stalemate():
+            board.pop()
+            continue
         # 🔥 Winning Mode aktiv?
         winning = evaluate(board) > WIN_THRESHOLD
 
