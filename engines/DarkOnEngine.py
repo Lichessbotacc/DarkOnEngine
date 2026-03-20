@@ -372,11 +372,7 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
     state.nodes += 1
 
     if depth == 0:
-        # 🔥 wenn Schach → tiefer suchen!
-        if board.is_check():
-            depth = 2
-        else:
-            return quiescence(board, alpha, beta, state, stop_event)
+        return quiescence(board, alpha, beta, state, stop_event)
 
     key = fast_board_key(board)
     tt_entry = state.tt.get(key)
@@ -420,16 +416,9 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
                 continue
         mover = board.turn
         board.push(move)
-
-        # ✅ ERST prüfen: Habe ich Matt gesetzt?
         if board.is_checkmate():
             board.pop()
-            return 1000000 - depth
-
-        # 🚨 DANN: Verhindere gegnerisches Matt
-        if allows_mate_in_one(board):
-            board.pop()
-            continue
+            return 100000 - depth  # schnelleres Matt = besser
         # 🔥 Winning Mode aktiv?
         winning = evaluate(board) > WIN_THRESHOLD
 
@@ -506,7 +495,6 @@ class SearchThread(threading.Thread):
         self.state = SearchState()
         self.state.time_limit = 0.0
         self.state.start_time = 0.0
-        self.safe_moves = safe_moves if safe_moves else None
 
         # 🚨 ANTI-MATE-IN-1
         safe_moves = []
@@ -529,11 +517,10 @@ class SearchThread(threading.Thread):
                 safe_moves.append(mv)
 
 # Wenn es sichere Züge gibt → nur diese benutzen
-        if self.safe_moves is not None:
-            moves = self.safe_moves
+        if safe_moves:
+            moves = safe_moves
         else:
             moves = list(self.root_board.legal_moves)
-            self.safe_moves = safe_moves if safe_moves else None
 
     def time_remaining_ms(self):
         if self.movetime:
