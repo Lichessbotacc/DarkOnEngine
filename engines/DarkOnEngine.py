@@ -520,7 +520,11 @@ class SearchThread(threading.Thread):
         if safe_moves:
             moves = safe_moves
         else:
+        if self.safe_moves is not None:
+            moves = self.safe_moves
+        else:
             moves = list(self.root_board.legal_moves)
+            self.safe_moves = safe_moves if safe_moves else None
 
     def time_remaining_ms(self):
         if self.movetime:
