@@ -83,7 +83,7 @@ def calculate_think_time(remaining_time_ms):
     elif t >= 5:
         return rnd.uniform(0.1, 1.5)
     else:
-        return 0.1    # panic
+        return 0.0   # panic
 
 
 def fast_board_key(board: chess.Board):
