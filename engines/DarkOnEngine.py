@@ -506,6 +506,7 @@ class SearchThread(threading.Thread):
         self.state = SearchState()
         self.state.time_limit = 0.0
         self.state.start_time = 0.0
+        self.safe_moves = safe_moves if safe_moves else None
 
         # 🚨 ANTI-MATE-IN-1
         safe_moves = []
