@@ -700,7 +700,10 @@ def uci_loop():
                 idx = 1
                 if len(parts) >= 2 and parts[1] == "startpos":
                     if chess960_mode:
-                        board = chess.Board.from_chess960_pos(rnd.randint(0, 959))
+                        try:
+                            board = chess.Board.from_chess960_pos(rnd.randint(0, 959))
+                        except:
+                            board = chess.Board()
                     else:
                         board = chess.Board()
                     idx = 2
@@ -709,13 +712,10 @@ def uci_loop():
                         fen = " ".join(parts[2:8])
                         try:
                             board = chess.Board(fen)
-
-            # 🔥 WICHTIG: Chess960 automatisch erkennen
-                            if board.chess960:
-                                chess960_mode = True
-
+                            chess960_mode = board.chess960  # ← erkennt automatisch Chess960
                         except Exception:
                             board = chess.Board()
+                            chess960_mode = False
                         idx = 8
                 if idx < len(parts) and parts[idx] == "moves":
                     for mv in parts[idx+1:]:
