@@ -64,7 +64,9 @@ TTEntry = namedtuple("TTEntry", ["depth", "flag", "score", "best_move"])
 def calculate_think_time(remaining_time_ms):
     t = remaining_time_ms / 1000  # seconds
 
-    if t >= 1800:      # 30 minutes
+    if t >= 3600:      # 1 hour
+        return rnd.uniform(60, 300)
+    elif t >= 1800:      # 30 minutes
         return rnd.uniform(20, 120)
     elif t >= 1200:    # 20 minutes
         return rnd.uniform(16, 60)
