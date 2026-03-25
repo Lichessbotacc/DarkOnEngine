@@ -709,6 +709,11 @@ def uci_loop():
                         fen = " ".join(parts[2:8])
                         try:
                             board = chess.Board(fen)
+
+            # 🔥 WICHTIG: Chess960 automatisch erkennen
+                            if board.chess960:
+                                chess960_mode = True
+
                         except Exception:
                             board = chess.Board()
                         idx = 8
