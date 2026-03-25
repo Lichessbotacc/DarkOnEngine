@@ -186,12 +186,14 @@ def evaluate(board: chess.Board):
     # ========= CASTLING BONUS =========
     
 
-    CASTLING_BONUS = 100
-
-    if not board.has_castling_rights(chess.WHITE):
+    if wk == chess.G1 and not board.has_kingside_castling_rights(chess.WHITE):
+        score += CASTLING_BONUS
+    elif wk == chess.C1 and not board.has_queenside_castling_rights(chess.WHITE):
         score += CASTLING_BONUS
 
-    if not board.has_castling_rights(chess.BLACK):
+    if bk == chess.G8 and not board.has_kingside_castling_rights(chess.BLACK):
+        score -= CASTLING_BONUS
+    elif bk == chess.C8 and not board.has_queenside_castling_rights(chess.BLACK):
         score -= CASTLING_BONUS
 
     # ========= SIDE TO MOVE =========
