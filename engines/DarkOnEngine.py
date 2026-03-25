@@ -662,9 +662,9 @@ def uci_loop():
     stop_event = threading.Event()
     print("id name DarkOnEngine")
     print("id author Dark and Classic")
+    print("option name UCI_Chess960 type check default false")  # ✅ Option für Chess960
     print("uciok")
     sys.stdout.flush()
-
     while True:
         try:
             line = sys.stdin.readline()
@@ -687,10 +687,7 @@ def uci_loop():
                 sys.stdout.flush()
             elif cmd == "setoption":
                 if "UCI_Chess960" in line:
-                    if "true" in line.lower():
-                        chess960_mode = True
-                    else:
-                        chess960_mode = False
+                    chess960_mode = "true" in line.lower()  # ✅ akzeptiert true/false
             elif cmd == "ucinewgame":
                 if chess960_mode:
                     board = chess.Board.from_chess960_pos(rnd.randint(0, 959))
@@ -700,10 +697,7 @@ def uci_loop():
                 idx = 1
                 if len(parts) >= 2 and parts[1] == "startpos":
                     if chess960_mode:
-                        try:
-                            board = chess.Board.from_chess960_pos(rnd.randint(0, 959))
-                        except:
-                            board = chess.Board()
+                        board = chess.Board.from_chess960_pos(rnd.randint(0, 959))  # ✅ Chess960 direkt
                     else:
                         board = chess.Board()
                     idx = 2
@@ -711,11 +705,9 @@ def uci_loop():
                     if len(parts) >= 8:
                         fen = " ".join(parts[2:8])
                         try:
-                            board = chess.Board(fen)
-                            chess960_mode = board.chess960  # ← erkennt automatisch Chess960
+                            board = chess.Board(fen, chess960=chess960_mode)  # ✅ wichtig für Chess960
                         except Exception:
                             board = chess.Board()
-                            chess960_mode = False
                         idx = 8
                 if idx < len(parts) and parts[idx] == "moves":
                     for mv in parts[idx+1:]:
