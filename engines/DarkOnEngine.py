@@ -184,16 +184,14 @@ def evaluate(board: chess.Board):
         score -= KING_ACTIVITY_BONUS * (3 - abs(3.5 - bk_file)) + KING_ACTIVITY_BONUS * (3 - abs(3.5 - bk_rank))
     
     # ========= CASTLING BONUS =========
+    
+
     CASTLING_BONUS = 100
 
-    if wk == chess.G1 and not board.has_kingside_castling_rights(chess.WHITE):
-        score += CASTLING_BONUS
-    elif wk == chess.C1 and not board.has_queenside_castling_rights(chess.WHITE):
+    if not board.has_castling_rights(chess.WHITE):
         score += CASTLING_BONUS
 
-    if bk == chess.G8 and not board.has_kingside_castling_rights(chess.BLACK):
-        score -= CASTLING_BONUS
-    elif bk == chess.C8 and not board.has_queenside_castling_rights(chess.BLACK):
+    if not board.has_castling_rights(chess.BLACK):
         score -= CASTLING_BONUS
 
     # ========= SIDE TO MOVE =========
@@ -656,6 +654,7 @@ class SearchThread(threading.Thread):
 
 def uci_loop():
     board = chess.Board()
+    chess960_mode = False
     search_thread = None
     stop_event = threading.Event()
     print("id name DarkOnEngine")
