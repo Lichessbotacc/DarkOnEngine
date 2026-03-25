@@ -679,16 +679,29 @@ def uci_loop():
                 print("id name DarkOnEngine")
                 print("id author Dark and Classic")
                 print("uciok")
+                print("option name UCI_Chess960 type check default false")
                 sys.stdout.flush()
             elif cmd == "isready":
                 print("readyok")
                 sys.stdout.flush()
+            elif cmd == "setoption":
+                if "UCI_Chess960" in line:
+                    if "true" in line.lower():
+                        chess960_mode = True
+                    else:
+                        chess960_mode = False
             elif cmd == "ucinewgame":
-                board = chess.Board()
+                if chess960_mode:
+                    board = chess.Board.from_chess960_pos(rnd.randint(0, 959))
+                else:
+                    board = chess.Board()
             elif cmd == "position":
                 idx = 1
                 if len(parts) >= 2 and parts[1] == "startpos":
-                    board = chess.Board()
+                    if chess960_mode:
+                        board = chess.Board.from_chess960_pos(rnd.randint(0, 959))
+                    else:
+                        board = chess.Board()
                     idx = 2
                 elif len(parts) >= 2 and parts[1] == "fen":
                     if len(parts) >= 8:
