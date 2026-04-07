@@ -64,7 +64,9 @@ TTEntry = namedtuple("TTEntry", ["depth", "flag", "score", "best_move"])
 def calculate_think_time(remaining_time_ms):
     t = remaining_time_ms / 1000  # seconds
 
-    if t >= 1800:      # 30 minutes
+    if t >= 3600:      # 1 hour
+        return rnd.uniform(60, 300)
+    elif t >= 1800:      # 30 minutes
         return rnd.uniform(20, 120)
     elif t >= 1200:    # 20 minutes
         return rnd.uniform(16, 60)
@@ -184,6 +186,7 @@ def evaluate(board: chess.Board):
         score -= KING_ACTIVITY_BONUS * (3 - abs(3.5 - bk_file)) + KING_ACTIVITY_BONUS * (3 - abs(3.5 - bk_rank))
     
     # ========= CASTLING BONUS =========
+
     CASTLING_BONUS = 100
 
     if wk == chess.G1 and not board.has_kingside_castling_rights(chess.WHITE):
@@ -656,13 +659,14 @@ class SearchThread(threading.Thread):
 
 def uci_loop():
     board = chess.Board()
+    chess960_mode = False
     search_thread = None
     stop_event = threading.Event()
     print("id name DarkOnEngine")
     print("id author Dark and Classic")
+    print("option name UCI_Chess960 type check default false")  # ✅ Option für Chess960
     print("uciok")
     sys.stdout.flush()
-
     while True:
         try:
             line = sys.stdin.readline()
@@ -678,22 +682,32 @@ def uci_loop():
                 print("id name DarkOnEngine")
                 print("id author Dark and Classic")
                 print("uciok")
+                print("option name UCI_Chess960 type check default false")
                 sys.stdout.flush()
             elif cmd == "isready":
                 print("readyok")
                 sys.stdout.flush()
+            elif cmd == "setoption":
+                if "UCI_Chess960" in line:
+                    chess960_mode = "true" in line.lower()  # ✅ akzeptiert true/false
             elif cmd == "ucinewgame":
-                board = chess.Board()
+                if chess960_mode:
+                    board = chess.Board.from_chess960_pos(rnd.randint(0, 959))
+                else:
+                    board = chess.Board()
             elif cmd == "position":
                 idx = 1
                 if len(parts) >= 2 and parts[1] == "startpos":
-                    board = chess.Board()
+                    if chess960_mode:
+                        board = chess.Board.from_chess960_pos(rnd.randint(0, 959))  # ✅ Chess960 direkt
+                    else:
+                        board = chess.Board()
                     idx = 2
                 elif len(parts) >= 2 and parts[1] == "fen":
                     if len(parts) >= 8:
                         fen = " ".join(parts[2:8])
                         try:
-                            board = chess.Board(fen)
+                            board = chess.Board(fen, chess960=chess960_mode)  # ✅ wichtig für Chess960
                         except Exception:
                             board = chess.Board()
                         idx = 8
