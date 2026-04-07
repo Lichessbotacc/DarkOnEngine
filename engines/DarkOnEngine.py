@@ -199,8 +199,26 @@ def evaluate(board: chess.Board):
     elif bk == chess.C8 and not board.has_queenside_castling_rights(chess.BLACK):
         score -= CASTLING_BONUS
 
-    # ========= SIDE TO MOVE =========
    
+   # ========= BISHOP ON OPEN FILES =========
+BISHOP_OPEN_FILE_BONUS = 10000  # Punkte pro Läufer auf offener Linie
+
+def file_has_any_pawn(file):
+    # Gibt True zurück, wenn auf dieser Linie irgendeine Figur eine Bauern ist
+    for sq in range(8):
+        if board.piece_at(chess.square(file, sq)) and board.piece_at(chess.square(file, sq)).piece_type == chess.PAWN:
+            return True
+    return False
+
+for sq in board.pieces(chess.BISHOP, chess.WHITE):
+    f = chess.square_file(sq)
+    if not file_has_any_pawn(f):
+        score += BISHOP_OPEN_FILE_BONUS
+
+for sq in board.pieces(chess.BISHOP, chess.BLACK):
+    f = chess.square_file(sq)
+    if not file_has_any_pawn(f):
+        score -= BISHOP_OPEN_FILE_BONUS
 
 
     # ========= BISHOP PAIR =========
