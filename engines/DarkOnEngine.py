@@ -324,6 +324,10 @@ class SearchState:
         self.time_limit = 0.0
         self.history = defaultdict(int)
         self.last_move = None
+class ThreeCheckState:
+    def __init__(self):
+        self.white_checks = 0
+        self.black_checks = 0
 
 class SearchAbort(Exception):
     pass
@@ -419,11 +423,32 @@ def negamax(board: chess.Board, depth: int, alpha: int, beta: int,
                 continue
         mover = board.turn
         board.push(move)
+        if self.is_3check:
+            if board.is_check():
+                if board.turn == chess.BLACK:  # Weiß hat gezogen
+                    self.state_3check.white_checks += 1
+                else:
+                    self.state_3check.black_checks += 1
+
+    # Sofortige Siegprüfung
+            if self.state_3check.white_checks >= 3:
+                board.pop()
+                return -INF  # Schwarz verliert
+            if self.state_3check.black_checks >= 3:
+                board.pop()
+                return INF   # Weiß verliert
         if board.is_checkmate():
             board.pop()
             return 100000 - depth  # schnelleres Matt = besser
         if board.is_stalemate():
             board.pop()
+
+# 3-Check Zähler wieder runtersetzen
+        if self.is_3check and board.is_check():
+            if board.turn == chess.BLACK:
+                self.state_3check.white_checks -= 1
+            else:
+                self.state_3check.black_checks -= 1
             continue
         # 🔥 Winning Mode aktiv?
         winning = evaluate(board) > WIN_THRESHOLD
@@ -499,6 +524,8 @@ class SearchThread(threading.Thread):
         self.depth_reached = 0
 
         self.state = SearchState()
+        self.state_3check = ThreeCheckState()
+        self.is_3check = False  # ⚡ Flag für 3-Check
         self.state.time_limit = 0.0
         self.state.start_time = 0.0
 
@@ -664,7 +691,8 @@ def uci_loop():
     stop_event = threading.Event()
     print("id name DarkOnEngine")
     print("id author Dark and Classic")
-    print("option name UCI_Chess960 type check default false")  # ✅ Option für Chess960
+    print("option name UCI_Chess960 type check default false")
+    print("option name 3check type check default false")  # <--- NEU# ✅ Option für Chess960
     print("uciok")
     sys.stdout.flush()
     while True:
