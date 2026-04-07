@@ -261,24 +261,31 @@ def evaluate(board: chess.Board):
             score -= ROOK_7TH
 
     # ========= BISHOP ON OPEN FILES =========
-    BISHOP_OPEN_FILE_BONUS = 1000000  # Punkte pro Läufer auf offener Linie
+    # ========= BISHOP ON OPEN / HALF-OPEN FILES =========
+    BISHOP_OPEN_FILE_BONUS = 20
+    BISHOP_HALF_OPEN_FILE_BONUS = 10
 
-    def file_has_any_pawn(file):
-    # Gibt True zurück, wenn auf dieser Linie irgendeine Figur eine Bauern ist
-        for sq in range(8):
-            if board.piece_at(chess.square(file, sq)) and board.piece_at(chess.square(file, sq)).piece_type == chess.PAWN:
+    def file_has_pawn(file, color):
+    # Prüft, ob auf dieser Linie ein Bauer der Farbe color steht
+        for rank in range(8):
+            p = board.piece_at(chess.square(file, rank))
+            if p and p.piece_type == chess.PAWN and p.color == color:
                 return True
         return False
 
     for sq in board.pieces(chess.BISHOP, chess.WHITE):
         f = chess.square_file(sq)
-        if not file_has_any_pawn(f):
-            score += BISHOP_OPEN_FILE_BONUS
+        if not file_has_pawn(f, chess.WHITE) and not file_has_pawn(f, chess.BLACK):
+            score += BISHOP_OPEN_FILE_BONUS  # komplett offen
+        elif not file_has_pawn(f, chess.BLACK):
+            score += BISHOP_HALF_OPEN_FILE_BONUS  # halb-offen
 
     for sq in board.pieces(chess.BISHOP, chess.BLACK):
         f = chess.square_file(sq)
-        if not file_has_any_pawn(f):
+        if not file_has_pawn(f, chess.WHITE) and not file_has_pawn(f, chess.BLACK):
             score -= BISHOP_OPEN_FILE_BONUS
+        elif not file_has_pawn(f, chess.WHITE):
+            score -= BISHOP_HALF_OPEN_FILE_BONUS
     # ========= KNIGHT OUTPOST =========
     KNIGHT_OUTPOST = 20
 
