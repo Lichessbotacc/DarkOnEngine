@@ -11,6 +11,10 @@ import random as rnd
 INF = 99999999
 DRAW_PENALTY = 50000      # штраф за повтор
 WIN_THRESHOLD = 150    # считаем позицию выигранной (cp)
+# ========= VARIANT =========
+VARIANT = "standard"   # "standard" oder "koth"
+
+KOTH_CENTER = [chess.D4, chess.E4, chess.D5, chess.E5]
 
 
 PIECE_VALUES = {
@@ -116,8 +120,19 @@ def mvv_lva_score(board, move):
 # ---- Оценка позиции ----
 
 def evaluate(board: chess.Board):
+
     # ========= TERMINAL =========
     MATE_SCORE = 10000000
+
+    wk = board.king(chess.WHITE)
+    bk = board.king(chess.BLACK)
+
+# 🔥 KOTH WIN CONDITION
+    if VARIANT == "koth":
+        if wk in KOTH_CENTER:
+            return MATE_SCORE
+        if bk in KOTH_CENTER:
+            return -MATE_SCORE
 
     if board.is_checkmate():
         return -MATE_SCORE
@@ -152,6 +167,23 @@ def evaluate(board: chess.Board):
 
     score += material
 
+    # ========= KOTH CENTER BONUS =========
+    if VARIANT == "koth":
+        KOTH_BONUS = 40
+
+        def dist_to_center(sq):
+            file = chess.square_file(sq)
+            rank = chess.square_rank(sq)
+            return min(
+                abs(file - 3) + abs(rank - 3),
+                abs(file - 4) + abs(rank - 3),
+                abs(file - 3) + abs(rank - 4),
+                abs(file - 4) + abs(rank - 4),
+            )
+
+        score -= KOTH_BONUS * dist_to_center(bk)
+        score += KOTH_BONUS * dist_to_center(wk)
+
     
     # ========= GAME PHASE =========
     num_queens = len(board.pieces(chess.QUEEN, chess.WHITE)) + len(board.pieces(chess.QUEEN, chess.BLACK))
@@ -177,7 +209,7 @@ def evaluate(board: chess.Board):
 
         score += KING_ENDGAME_PST[wk]
         score -= KING_ENDGAME_PST[chess.square_mirror(bk)]
-        KING_ACTIVITY_BONUS = 10
+        KING_ACTIVITY_BONUS = 20 if VARIANT == "koth" else 10
 # Belohne jeden Schritt in Richtung Zentrum
         wk_file, wk_rank = chess.square_file(wk), chess.square_rank(wk)
         bk_file, bk_rank = chess.square_file(bk), chess.square_rank(bk)
@@ -187,7 +219,7 @@ def evaluate(board: chess.Board):
     
     # ========= CASTLING BONUS =========
 
-    CASTLING_BONUS = 100
+    CASTLING_BONUS = 20 if VARIANT == "koth" else 100
 
     if wk == chess.G1 and not board.has_kingside_castling_rights(chess.WHITE):
         score += CASTLING_BONUS
@@ -665,6 +697,7 @@ def uci_loop():
     print("id name DarkOnEngine")
     print("id author Dark and Classic")
     print("option name UCI_Chess960 type check default false")  # ✅ Option für Chess960
+    print("option name Variant type combo default standard var standard var koth")
     print("uciok")
     sys.stdout.flush()
     while True:
@@ -689,8 +722,15 @@ def uci_loop():
                 sys.stdout.flush()
             elif cmd == "setoption":
                 if "UCI_Chess960" in line:
-                    chess960_mode = "true" in line.lower()  # ✅ akzeptiert true/false
+                    chess960_mode = "true" in line.lower()
+
+                if "Variant" in line:
+                    if "koth" in line.lower():
+                        globals()["VARIANT"] = "koth"
+                    else:
+                        globals()["VARIANT"] = "standard"
             elif cmd == "ucinewgame":
+                globals()["VARIANT"] = "standard"
                 if chess960_mode:
                     board = chess.Board.from_chess960_pos(rnd.randint(0, 959))
                 else:
