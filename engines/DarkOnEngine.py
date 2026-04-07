@@ -12,7 +12,7 @@ INF = 99999999
 DRAW_PENALTY = 50000      # штраф за повтор
 WIN_THRESHOLD = 150    # считаем позицию выигранной (cp)
 # ========= VARIANT =========
-VARIANT = "standard"   # "standard" oder "koth"
+
 
 KOTH_CENTER = [chess.D4, chess.E4, chess.D5, chess.E5]
 
@@ -734,6 +734,11 @@ def uci_loop():
                     board = chess.Board.from_chess960_pos(rnd.randint(0, 959))
                 else:
                     board = chess.Board()
+
+                if "koth" in line.lower():   # falls externe Info vorhanden
+                    globals()["VARIANT"] = "koth"
+                else:
+                    globals()["VARIANT"] = "standard"
             elif cmd == "position":
                 idx = 1
                 if len(parts) >= 2 and parts[1] == "startpos":
@@ -749,6 +754,10 @@ def uci_loop():
                             board = chess.Board(fen, chess960=chess960_mode)  # ✅ wichtig für Chess960
                         except Exception:
                             board = chess.Board()
+                        if is_koth_fen(fen):   # eine kleine Hilfsfunktion, die KOTH erkennt
+                            globals()["VARIANT"] = "koth"
+                        else:
+                            globals()["VARIANT"] = "standard"
                         idx = 8
                 if idx < len(parts) and parts[idx] == "moves":
                     for mv in parts[idx+1:]:
