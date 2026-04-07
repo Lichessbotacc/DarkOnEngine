@@ -166,7 +166,6 @@ def evaluate(board: chess.Board):
     bk = board.king(chess.BLACK)
 
     # ========= KING =========
-    # ========= KING =========
     if endgame:
     # Belohne König für Zentrum im Endspiel
         central_squares = [chess.D4, chess.D5, chess.E4, chess.E5]
@@ -261,6 +260,25 @@ def evaluate(board: chess.Board):
         if chess.square_rank(sq) == 1:
             score -= ROOK_7TH
 
+    # ========= BISHOP ON OPEN FILES =========
+    BISHOP_OPEN_FILE_BONUS = 1000000  # Punkte pro Läufer auf offener Linie
+
+    def file_has_any_pawn(file):
+    # Gibt True zurück, wenn auf dieser Linie irgendeine Figur eine Bauern ist
+        for sq in range(8):
+            if board.piece_at(chess.square(file, sq)) and board.piece_at(chess.square(file, sq)).piece_type == chess.PAWN:
+                return True
+        return False
+
+    for sq in board.pieces(chess.BISHOP, chess.WHITE):
+        f = chess.square_file(sq)
+        if not file_has_any_pawn(f):
+            score += BISHOP_OPEN_FILE_BONUS
+
+    for sq in board.pieces(chess.BISHOP, chess.BLACK):
+        f = chess.square_file(sq)
+        if not file_has_any_pawn(f):
+            score -= BISHOP_OPEN_FILE_BONUS
     # ========= KNIGHT OUTPOST =========
     KNIGHT_OUTPOST = 20
 
