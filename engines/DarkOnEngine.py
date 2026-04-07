@@ -127,12 +127,11 @@ def evaluate(board: chess.Board):
     wk = board.king(chess.WHITE)
     bk = board.king(chess.BLACK)
 
-# 🔥 KOTH WIN CONDITION
-    if VARIANT == "koth":
-        if wk in KOTH_CENTER:
-            return MATE_SCORE
-        if bk in KOTH_CENTER:
-            return -MATE_SCORE
+# 🔥 KOTH WIN CONDITION (IMMER AKTIV)
+    if wk in KOTH_CENTER:
+        return MATE_SCORE
+    if bk in KOTH_CENTER:
+        return -MATE_SCORE
 
     if board.is_checkmate():
         return -MATE_SCORE
