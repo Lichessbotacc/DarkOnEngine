@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""
-DarkOnEngine – UCI-kompatibler Schach-Motor
-Menschlicher Spielstil: kohärente Pläne, kein sinnloses Hin-und-Her,
-keine offensichtlichen Hänger, aber keine übermenschliche Stärke.
-"""
+
 
 import chess
 import sys
