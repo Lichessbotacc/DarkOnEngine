@@ -224,9 +224,9 @@ def calculate_think_time(remaining_ms: int, increment_ms: int = 0) -> float:
     elif t >=  300: return rnd.uniform(  5,  14)
     elif t >=  180: return rnd.uniform(  4,  10)
     elif t >=   60: return rnd.uniform(  3,   8)
-    elif t >=   20: return rnd.uniform(  1,   2)
-    elif t >=    3: return rnd.uniform(0.1, 1.5)
-    else:           return 0.2
+    elif t >=   20: return rnd.uniform(  0.5,   2)
+    elif t >=    5: return rnd.uniform(0.1, 1.5)
+    else:           return rnd.uniform(0.08, 0.2)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
