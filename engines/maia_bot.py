@@ -26,8 +26,12 @@ import platform
 import threading
 import urllib.request
 
+import re
+import queue
+import subprocess
+import random as rnd
+
 import chess
-import chess.engine
 
 import darkon_human as dh
 
@@ -37,6 +41,8 @@ CFG = {
     "level": int(os.environ.get("MAIA_LEVEL", "1700")),   # 1100 ... 1900
     "weights": "",
     "nodes": 1,
+    "temp": 1.0,      # 1.0 = genau die menschliche Zugverteilung
+    "min_p": 0.01,    # Zuege unter 1 % Wahrscheinlichkeit werden ignoriert
 }
 WEIGHT_URL = ("https://github.com/CSSLab/maia-chess/raw/master/"
               "maia_weights/maia-{lvl}.pb.gz")
@@ -110,6 +116,83 @@ def ensure_lc0():
     raise RuntimeError("lc0.exe nach dem Entpacken nicht gefunden")
 
 
+MOVE_RE = re.compile(r"info string ([a-h][1-8][a-h][1-8][qrbn]?)\s.*?\(P:\s*([0-9.]+)%\)")
+
+
+class Lc0Proc:
+    """Spricht direkt UCI mit lc0 und liest die Zugwahrscheinlichkeiten (Policy)."""
+
+    def __init__(self, cmd):
+        flags = 0x08000000 if os.name == "nt" else 0   # kein Konsolenfenster
+        self.p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                  stderr=subprocess.DEVNULL, text=True, bufsize=1,
+                                  creationflags=flags)
+        self.q = queue.Queue()
+        threading.Thread(target=self._reader, daemon=True).start()
+        self.send("uci")
+        self.wait("uciok", 120)
+        self.send("setoption name VerboseMoveStats value true")
+        self.send("isready")
+        self.wait("readyok", 120)
+
+    def _reader(self):
+        for line in self.p.stdout:
+            self.q.put(line.rstrip("\n"))
+        self.q.put(None)
+
+    def send(self, line):
+        self.p.stdin.write(line + "\n")
+        self.p.stdin.flush()
+
+    def wait(self, token, timeout):
+        lines = []
+        end = time.time() + timeout
+        while True:
+            try:
+                ln = self.q.get(timeout=max(0.1, end - time.time()))
+            except queue.Empty:
+                raise RuntimeError("lc0 antwortet nicht")
+            if ln is None:
+                raise RuntimeError("lc0 wurde beendet")
+            lines.append(ln)
+            if ln.startswith(token):
+                return lines
+            if time.time() > end:
+                raise RuntimeError("lc0 Zeitueberschreitung")
+
+    def set960(self):
+        self.send("setoption name UCI_Chess960 value true")
+
+    def query(self, board, nodes):
+        tmp = board.root()
+        moves = []
+        for m in board.move_stack:
+            moves.append(tmp.uci(m))
+            tmp.push(m)
+        root = board.root()
+        pos = ("position startpos" if root.fen() == chess.STARTING_FEN
+               else f"position fen {root.fen()}")
+        if moves:
+            pos += " moves " + " ".join(moves)
+        self.send(pos)
+        self.send(f"go nodes {nodes}")
+        lines = self.wait("bestmove", 60)
+        best = lines[-1].split()[1]
+        probs = {}
+        for ln in lines:
+            mm = MOVE_RE.match(ln)
+            if mm:
+                probs[mm.group(1)] = float(mm.group(2)) / 100.0
+        return best, probs
+
+    def quit(self):
+        try:
+            self.send("quit")
+            self.p.wait(timeout=3)
+        except Exception:
+            self.p.kill()
+
+
 def get_engine(chess960=False):
     """Startet lc0 mit Maia-Gewichten (einmalig). None, wenn nicht moeglich."""
     global _engine, _engine_failed
@@ -121,12 +204,9 @@ def get_engine(chess960=False):
         try:
             cmd = [ensure_lc0(), f"--weights={weights_path()}"]
             cmd += shlex.split(os.environ.get("LC0_ARGS", ""))
-            _engine = chess.engine.SimpleEngine.popen_uci(cmd, timeout=60)
+            _engine = Lc0Proc(cmd)
             if chess960:
-                try:
-                    _engine.configure({"UCI_Chess960": True})
-                except Exception:
-                    pass
+                _engine.set960()
             log(f"Maia-{CFG['level']} via lc0 geladen")
         except Exception as e:
             _engine_failed = True
@@ -139,12 +219,31 @@ def close_engine():
     global _engine, _engine_failed
     with _lock:
         if _engine is not None:
-            try:
-                _engine.quit()
-            except Exception:
-                pass
+            _engine.quit()
         _engine = None
         _engine_failed = False
+
+
+def human_choice(board, best_uci, probs, t_left):
+    """Zieht zufaellig gemaess der menschlichen Zugverteilung des Maia-Netzes.
+    Bei Zeitnot wird die Verteilung flacher (mehr Fehler wie bei Menschen)."""
+    temp = CFG["temp"]
+    if t_left < 8:
+        temp *= 1.8
+    elif t_left < 20:
+        temp *= 1.35
+    cands, weights = [], []
+    for m in board.legal_moves:
+        pr = probs.get(board.uci(m), 0.0)
+        if pr >= CFG["min_p"]:
+            cands.append(m)
+            weights.append(pr ** (1.0 / max(0.05, temp)))
+    if not cands:
+        for m in board.legal_moves:
+            if board.uci(m) == best_uci:
+                return m
+        return next(iter(board.legal_moves))
+    return rnd.choices(cands, weights=weights, k=1)[0]
 
 
 class MaiaThread(dh.SearchThread):
@@ -176,8 +275,9 @@ class MaiaThread(dh.SearchThread):
             target = min(target, dh.rnd.uniform(0.1, 0.5))
 
         try:
-            res = eng.play(board.copy(), chess.engine.Limit(nodes=CFG["nodes"]))
-            move = res.move
+            best_uci, probs = eng.query(board, CFG["nodes"])
+            move = human_choice(board, best_uci, probs,
+                                (remaining or 60_000) / 1000.0)
         except Exception as e:
             log(f"lc0-Fehler ({e}) - Fallback auf eingebaute Engine")
             close_engine()
@@ -208,6 +308,9 @@ def on_setoption(name, value, chess960):
     elif key == "maianodes":
         CFG["nodes"] = max(1, int(value))
         changed = False
+    elif key == "maiatemperature":
+        CFG["temp"] = max(5, int(value)) / 100.0
+        changed = False
     else:
         changed = False
     if changed:
@@ -219,6 +322,7 @@ EXTRA_OPTIONS = [
     "option name WeightsPath type string default ",
     "option name MaiaLevel type spin default 1700 min 1100 max 1900",
     "option name MaiaNodes type spin default 1 min 1 max 100",
+    "option name MaiaTemperature type spin default 100 min 5 max 300",
 ]
 
 if __name__ == "__main__":
