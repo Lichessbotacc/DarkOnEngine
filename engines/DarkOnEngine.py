@@ -429,36 +429,52 @@ def book_move(board):
 #  MENSCHLICHE BEDENKZEIT
 # ══════════════════════════════════════════════════════════════════════════════
 def human_think_time(board, remaining_ms, inc_ms, movestogo, n_legal, last_capture):
-    """Liefert (Zielzeit, harte Obergrenze) in Sekunden."""
+    """Liefert (Zielzeit, harte Obergrenze) in Sekunden.
+
+    Grundlage: Lichess-Partien dauern im Schnitt ca. 34-35 Zuege, und Spieler
+    verbrauchen den groessten Teil ihrer Uhr (grob 85-95 %). Also: Restzeit
+    gleichmaessig auf die erwarteten restlichen Zuege verteilen, Inkrement fast
+    komplett mitnutzen, Eroeffnung schnell, Mittelspiel langsamer, Komplexitaet
+    und Zufall obendrauf. Bei sehr wenig Zeit zieht man trotzdem noch ~1 s.
+    """
     t = remaining_ms / 1000.0
     inc = inc_ms / 1000.0
     fm = board.fullmove_number
 
-    moves_left = movestogo or max(18, 45 - fm)
-    base = t / moves_left + 0.75 * inc
+    moves_left = movestogo or max(10, 40 - fm)
+    base = t / moves_left + 0.9 * inc
 
-    f = 1.0
-    if fm <= 5:
-        f *= 0.4            # Eroeffnung geht schnell
-    elif fm <= 10:
-        f *= 0.75
+    if fm <= 4:
+        phase = 0.40            # Eroeffnungswissen
+    elif fm <= 8:
+        phase = 0.80
+    elif fm <= 25:
+        phase = 1.15            # Mittelspiel: hier wird gedacht
+    else:
+        phase = 0.85
+    f = phase
+
     if board.is_check():
-        f *= 1.2
+        f *= 1.15
     if last_capture:
-        f *= 0.7            # Rueckschlag meist offensichtlich
-    f *= 0.7 + min(n_legal, 45) / 60.0     # mehr Zuege = mehr Nachdenken
-    f *= math.exp(rnd.gauss(0, 0.45))      # natuerliche Streuung
-    if rnd.random() < 0.07:
-        f *= 2.2                           # kritischer Moment: tief nachdenken
+        f *= 0.7                # Rueckschlag ist meist offensichtlich
+    caps = sum(1 for m in board.legal_moves if board.is_capture(m))
+    cx = (0.75 + min(n_legal, 45) / 60.0) * (1 + 0.05 * min(caps, 6))
+    f *= min(1.8, max(0.6, cx))
+    f *= math.exp(rnd.gauss(0, 0.5))          # natuerliche Streuung
+    if t > 60 and rnd.random() < 0.04:
+        f *= 2.2                              # kritischer Moment
 
     target = base * f
-    target = min(target, t * 0.12 + inc * 0.8)
-    if t < 10:
-        target = min(target, 0.25 + inc * 0.5)
-    target = max(target, 0.4 if t >= 20 else 0.1)
-    target = min(target, max(0.05, t - 1.0))
 
-    hard = min(max(target * 1.6, target + 0.3), max(0.1, t * 0.3))
+    # Obergrenze pro Zug (verhindert, dass der letzte Rest verbraucht wird);
+    # bei fast leerer Uhr zieht man immer noch ca. 0,3-1 s
+    cap = max(0.35, t * 0.12) + inc * 0.8
+    target = min(target, cap)
+    target = max(target, 0.35 if t >= 10 else 0.15)
+    target = min(target, max(0.05, t - 0.6))
+
+    hard = min(max(target * 1.5, target + 0.2), max(0.1, t * 0.25))
     hard = max(hard, target * 0.5)
     return target, hard
 
