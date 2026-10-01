@@ -598,7 +598,8 @@ class SearchThread(threading.Thread):
 # ══════════════════════════════════════════════════════════════════════════════
 #  UCI
 # ══════════════════════════════════════════════════════════════════════════════
-def uci_loop():
+def uci_loop(thread_cls=None, extra_options=(), on_setoption=None, on_quit=None):
+    thread_cls = thread_cls or SearchThread
     board = chess.Board()
     chess960 = False
     last_capture = False
@@ -625,6 +626,8 @@ def uci_loop():
                 print("id name DarkOnEngine Human")
                 print("id author Dark and Classic")
                 print("option name UCI_Chess960 type check default false")
+                for o in extra_options:
+                    print(o)
                 print("uciok")
             elif cmd == "isready":
                 print("readyok")
@@ -632,6 +635,11 @@ def uci_loop():
                 low = line.lower()
                 if "uci_chess960" in low:
                     chess960 = low.strip().endswith("true")
+                elif on_setoption and "name" in parts:
+                    ni = parts.index("name")
+                    vi = parts.index("value") if "value" in parts else len(parts)
+                    on_setoption(" ".join(parts[ni + 1:vi]),
+                                 " ".join(parts[vi + 1:]), chess960)
             elif cmd == "ucinewgame":
                 stop_search()
                 board = chess.Board(chess960=chess960)
@@ -680,7 +688,7 @@ def uci_loop():
                         i += 1
                 stop_search()
                 stop_event = threading.Event()
-                thread = SearchThread(
+                thread = thread_cls(
                     board, wtime=kw.get("wtime"), btime=kw.get("btime"),
                     winc=kw.get("winc"), binc=kw.get("binc"),
                     movetime=kw.get("movetime"), depth=kw.get("depth"),
@@ -691,6 +699,8 @@ def uci_loop():
                 stop_search()
             elif cmd == "quit":
                 stop_search()
+                if on_quit:
+                    on_quit()
                 break
             sys.stdout.flush()
         except Exception as e:
